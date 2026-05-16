@@ -16,3 +16,6 @@ jwt:
   secret: ${JWT_SECRET:meetingNotesSecretKey2026!@#$%^&*()SuperLongSecretForHS256Algorithm}
   access-token-expiry: 900000
   refresh-token-expiry: 604800000
+
+cors:
+  allowed-origin: ${CORS_ORIGIN:http://localhost:3000}

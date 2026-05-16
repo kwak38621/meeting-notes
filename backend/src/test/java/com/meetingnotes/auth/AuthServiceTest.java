@@ -81,4 +81,26 @@ class AuthServiceTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("비밀번호");
     }
+
+    @Test
+    void refresh_성공() {
+        when(jwtUtil.isValid("valid-refresh-token")).thenReturn(true);
+        when(jwtUtil.extractEmail("valid-refresh-token")).thenReturn("test@test.com");
+        User user = User.builder().email("test@test.com").password("encoded").name("홍길동").build();
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(jwtUtil.generateAccessToken("test@test.com")).thenReturn("new-access-token");
+        when(jwtUtil.generateRefreshToken("test@test.com")).thenReturn("new-refresh-token");
+
+        AuthResponse response = authService.refresh("valid-refresh-token");
+        assertThat(response.accessToken()).isEqualTo("new-access-token");
+    }
+
+    @Test
+    void refresh_유효하지않은토큰_예외() {
+        when(jwtUtil.isValid("bad-token")).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.refresh("bad-token"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("유효하지 않은");
+    }
 }
