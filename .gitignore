@@ -1,4 +1,6 @@
-# Java / Maven
+# Java / Gradle
+backend/build/
+backend/.gradle/
 backend/target/
 
 # IDE
