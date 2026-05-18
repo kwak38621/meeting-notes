@@ -1,6 +1,8 @@
 package com.meetingnotes.page;
 
 import com.meetingnotes.page.dto.*;
+import com.meetingnotes.tag.Tag;
+import com.meetingnotes.tag.TagRepository;
 import com.meetingnotes.user.User;
 import com.meetingnotes.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ public class PageService {
 
     private final PageRepository pageRepository;
     private final UserRepository userRepository;
+    private final TagRepository tagRepository;
 
     public PageResponse create(PageRequest req, String email) {
         User user = getUser(email);
@@ -87,6 +90,28 @@ public class PageService {
             cursor = cursor.getParent();
         }
         page.setParent(newParent);
+        return PageResponse.from(page);
+    }
+
+    public PageResponse addTag(Long pageId, Long tagId, String email) {
+        Page page = getPageOwned(pageId, email);
+        Tag tag = tagRepository.findById(tagId)
+            .orElseThrow(() -> new IllegalArgumentException("태그를 찾을 수 없습니다."));
+        if (!tag.getUser().getId().equals(page.getUser().getId())) {
+            throw new IllegalArgumentException("접근 권한이 없습니다.");
+        }
+        page.addTag(tag);
+        return PageResponse.from(page);
+    }
+
+    public PageResponse removeTag(Long pageId, Long tagId, String email) {
+        Page page = getPageOwned(pageId, email);
+        Tag tag = tagRepository.findById(tagId)
+            .orElseThrow(() -> new IllegalArgumentException("태그를 찾을 수 없습니다."));
+        if (!tag.getUser().getId().equals(page.getUser().getId())) {
+            throw new IllegalArgumentException("접근 권한이 없습니다.");
+        }
+        page.removeTag(tag);
         return PageResponse.from(page);
     }
 

@@ -62,6 +62,20 @@ public class PageController {
         return ResponseEntity.ok(ApiResponse.ok(pageService.search(q, user.getUsername())));
     }
 
+    @PostMapping("/{pageId}/tags/{tagId}")
+    public ResponseEntity<ApiResponse<PageResponse>> addTag(
+            @PathVariable Long pageId, @PathVariable Long tagId,
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(ApiResponse.ok(pageService.addTag(pageId, tagId, user.getUsername())));
+    }
+
+    @DeleteMapping("/{pageId}/tags/{tagId}")
+    public ResponseEntity<ApiResponse<PageResponse>> removeTag(
+            @PathVariable Long pageId, @PathVariable Long tagId,
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(ApiResponse.ok(pageService.removeTag(pageId, tagId, user.getUsername())));
+    }
+
     @PatchMapping("/{id}/move")
     public ResponseEntity<ApiResponse<PageResponse>> move(
             @PathVariable Long id,

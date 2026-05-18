@@ -1,6 +1,7 @@
 package com.meetingnotes.page;
 
 import com.meetingnotes.common.BaseEntity;
+import com.meetingnotes.tag.Tag;
 import com.meetingnotes.user.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -41,6 +42,22 @@ public class Page extends BaseEntity {
 
     @Column(name = "sort_order")
     private int sortOrder;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "page_tags",
+        joinColumns = @JoinColumn(name = "page_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private List<Tag> tags = new ArrayList<>();
+
+    public void addTag(Tag tag) {
+        if (!tags.contains(tag)) tags.add(tag);
+    }
+
+    public void removeTag(Tag tag) {
+        tags.remove(tag);
+    }
 
     @Builder
     public Page(String title, String content, User user, Page parent, String emoji, int sortOrder) {
