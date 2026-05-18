@@ -1,10 +1,25 @@
-function App() {
-  return (
-    <div>
-      <h1>Meeting Notes</h1>
-      <p>Notion-style meeting notes app - coming soon.</p>
-    </div>
-  )
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import WorkspacePage from './pages/WorkspacePage';
+
+function PrivateRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div>로딩 중...</div>;
+  return user ? children : <Navigate to="/login" />;
 }
 
-export default App
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/*" element={<PrivateRoute><WorkspacePage /></PrivateRoute>} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
