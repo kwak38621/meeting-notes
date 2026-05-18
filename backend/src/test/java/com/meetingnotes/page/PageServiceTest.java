@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -49,5 +50,51 @@ class PageServiceTest {
         assertThatThrownBy(() -> pageService.update(1L, req, "other@test.com"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("권한");
+    }
+
+    @Test
+    void createPage_타인의_부모페이지_예외() {
+        User caller = mockUser();
+        User other = User.builder().email("other@test.com").password("pass").name("다른사람").build();
+        Page othersParent = Page.builder().title("타인 페이지").user(other).content("").emoji("📝").sortOrder(0).build();
+
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(caller));
+        when(pageRepository.findById(99L)).thenReturn(Optional.of(othersParent));
+
+        PageRequest req = new PageRequest("자식", "내용", 99L, "📝");
+        assertThatThrownBy(() -> pageService.create(req, "test@test.com"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("권한");
+    }
+
+    @Test
+    void movePage_자기자신을_부모로_예외() {
+        User user = mockUser();
+        Page page = Page.builder().title("페이지").user(user).content("").emoji("📝").sortOrder(0).build();
+        ReflectionTestUtils.setField(page, "id", 1L);
+
+        when(pageRepository.findById(1L)).thenReturn(Optional.of(page));
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> pageService.move(1L, 1L, "test@test.com"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("순환");
+    }
+
+    @Test
+    void movePage_후손을_부모로_예외() {
+        User user = mockUser();
+        Page pageA = Page.builder().title("A").user(user).content("").emoji("📝").sortOrder(0).build();
+        ReflectionTestUtils.setField(pageA, "id", 1L);
+        Page pageB = Page.builder().title("B").user(user).content("").emoji("📝").sortOrder(0).parent(pageA).build();
+        ReflectionTestUtils.setField(pageB, "id", 2L);
+
+        when(pageRepository.findById(1L)).thenReturn(Optional.of(pageA));
+        when(pageRepository.findById(2L)).thenReturn(Optional.of(pageB));
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> pageService.move(1L, 2L, "test@test.com"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("순환");
     }
 }

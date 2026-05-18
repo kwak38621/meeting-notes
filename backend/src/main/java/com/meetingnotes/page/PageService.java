@@ -22,6 +22,9 @@ public class PageService {
         Page parent = req.parentId() != null
             ? pageRepository.findById(req.parentId()).orElseThrow(() -> new IllegalArgumentException("부모 페이지를 찾을 수 없습니다."))
             : null;
+        if (parent != null && !parent.getUser().getEmail().equals(email)) {
+            throw new IllegalArgumentException("접근 권한이 없습니다.");
+        }
         Page page = Page.builder()
             .title(req.title())
             .content(req.content() != null ? req.content() : "")
@@ -66,9 +69,23 @@ public class PageService {
 
     public PageResponse move(Long id, Long newParentId, String email) {
         Page page = getPageOwned(id, email);
+        if (newParentId != null && id.equals(newParentId)) {
+            throw new IllegalArgumentException("순환 참조: 자기 자신 또는 후손을 부모로 설정할 수 없습니다.");
+        }
         Page newParent = newParentId != null
             ? pageRepository.findById(newParentId).orElseThrow(() -> new IllegalArgumentException("부모 페이지를 찾을 수 없습니다."))
             : null;
+        if (newParent != null && !newParent.getUser().getEmail().equals(email)) {
+            throw new IllegalArgumentException("접근 권한이 없습니다.");
+        }
+        // Cycle prevention: walk up newParent's ancestor chain; if we encounter the page being moved, reject.
+        Page cursor = newParent;
+        while (cursor != null) {
+            if (id.equals(cursor.getId())) {
+                throw new IllegalArgumentException("순환 참조: 자기 자신 또는 후손을 부모로 설정할 수 없습니다.");
+            }
+            cursor = cursor.getParent();
+        }
         page.setParent(newParent);
         return PageResponse.from(page);
     }
