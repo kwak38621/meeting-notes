@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePageContext } from '../context/PageContext';
 import { useTheme } from '../context/ThemeContext';
@@ -7,12 +8,16 @@ import PageTreeNode from './PageTreeNode';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
-  const { pageTree, refreshTree } = usePageContext();
+  const { pageTree, refreshTree, favorites, refreshFavorites } = usePageContext();
+  const navigate = useNavigate();
   const { mode, toggle, colors } = useTheme();
   const styles = makeStyles(colors);
   const [search, setSearch] = useState('');
 
-  useEffect(() => { refreshTree(); }, [refreshTree]);
+  useEffect(() => {
+    refreshTree();
+    refreshFavorites();
+  }, [refreshTree, refreshFavorites]);
 
   const handleNewPage = async () => {
     await createPage({ title: '새 페이지', content: '', emoji: '📄' });
@@ -38,6 +43,17 @@ export default function Sidebar() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
+      {favorites.length > 0 && (
+        <div style={styles.favSection}>
+          <div style={styles.favHeader}>⭐ 즐겨찾기 ({favorites.length})</div>
+          {favorites.map((p) => (
+            <div key={p.id} style={styles.favItem} onClick={() => navigate(`/pages/${p.id}`)}>
+              <span>{p.emoji || '📄'}</span>
+              <span>{p.title}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={styles.tree}>
         {filtered.map((node) => (
           <PageTreeNode key={node.id} node={node} />
@@ -62,4 +78,7 @@ const makeStyles = (c) => ({
   footer: { padding: '12px', borderTop: `1px solid ${c.border}`, display: 'flex', flexDirection: 'column', gap: '8px' },
   newPageBtn: { padding: '8px', background: c.accent, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' },
   logoutBtn: { padding: '8px', background: 'transparent', color: c.textMuted, border: `1px solid ${c.border}`, borderRadius: '4px', cursor: 'pointer', fontSize: '13px' },
+  favSection: { padding: '4px 0', borderBottom: `1px solid ${c.border}` },
+  favHeader: { padding: '6px 16px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '.05em', color: c.textMuted },
+  favItem: { padding: '6px 16px', fontSize: '13px', color: c.text, display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' },
 });
