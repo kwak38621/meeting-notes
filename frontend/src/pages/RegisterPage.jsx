@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { register } from '../api/auth';
+import { useTheme } from '../context/ThemeContext';
 
 export default function RegisterPage() {
   const [form, setForm] = useState({ email: '', password: '', name: '' });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  // 현재 테마 색상 주입
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -38,14 +42,22 @@ export default function RegisterPage() {
   );
 }
 
-const styles = {
-  container: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f7f6f3' },
-  card: { background: 'white', padding: '40px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', width: '360px' },
-  title: { fontSize: '24px', marginBottom: '8px', color: '#1a1a1a' },
-  subtitle: { fontSize: '18px', marginBottom: '24px', color: '#555', fontWeight: 'normal' },
+// 색상 토큰을 받아 스타일 객체 생성
+const makeStyles = (c) => ({
+  // 전체 배경: 사이드바 배경색 사용
+  container: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: c.sidebarBg },
+  // 카드: 기본 배경색
+  card: { background: c.bg, padding: '40px', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', width: '360px' },
+  // 제목: 기본 텍스트 색상
+  title: { fontSize: '24px', marginBottom: '8px', color: c.text },
+  subtitle: { fontSize: '18px', marginBottom: '24px', color: c.textMuted, fontWeight: 'normal' },
   form: { display: 'flex', flexDirection: 'column', gap: '12px' },
-  input: { padding: '10px 14px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none' },
-  button: { padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: 'pointer' },
-  error: { color: '#ef4444', fontSize: '13px', marginBottom: '8px' },
-  link: { textAlign: 'center', marginTop: '16px', fontSize: '13px', color: '#666' },
-};
+  // 입력 필드: input 배경 + border 색상
+  input: { padding: '10px 14px', border: `1px solid ${c.border}`, borderRadius: '4px', fontSize: '14px', outline: 'none', background: c.inputBg, color: c.text },
+  // 제출 버튼: 액센트 색상 배경
+  button: { padding: '12px', background: c.accent, color: '#fff', border: 'none', borderRadius: '4px', fontSize: '14px', cursor: 'pointer' },
+  // 오류 메시지: danger 색상
+  error: { color: c.danger, fontSize: '13px', marginBottom: '8px' },
+  // 링크 안내 텍스트: muted 색상
+  link: { textAlign: 'center', marginTop: '16px', fontSize: '13px', color: c.textMuted },
+});
