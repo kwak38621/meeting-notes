@@ -9,3 +9,7 @@ export const searchPages = (q) => api.get('/pages/search', { params: { q } });
 export const movePage = (id, parentId) => api.patch(`/pages/${id}/move`, { parentId });
 export const addTag = (pageId, tagId) => api.post(`/pages/${pageId}/tags/${tagId}`);
 export const removeTag = (pageId, tagId) => api.delete(`/pages/${pageId}/tags/${tagId}`);
+// 페이지 즐겨찾기 토글
+export const toggleFavorite = (id, favorite) => api.patch(`/pages/${id}/favorite`, { favorite });
+// 사용자의 즐겨찾기 페이지 목록
+export const getFavorites = () => api.get('/pages/favorites');
