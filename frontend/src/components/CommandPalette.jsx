@@ -6,7 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { usePageContext } from '../context/PageContext';
 import { useHotkey } from '../hooks/useHotkey';
 import { useRecentPages } from '../hooks/useRecentPages';
-import { createPage } from '../api/pages';
+import { createPage, updatePage } from '../api/pages';
+import { TEMPLATES } from '../templates';
 
 // 트리(중첩 children)를 평탄화해 id -> {id,title,emoji} 맵으로 만든다.
 function flattenTree(tree, out = new Map()) {
@@ -21,6 +22,8 @@ export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
+  // 템플릿 선택 모달 대상 페이지 id (null이면 모달 닫힘)
+  const [pickerForId, setPickerForId] = useState(null);
   const inputRef = useRef(null);
 
   const { colors, toggle: toggleTheme } = useTheme();
@@ -46,6 +49,12 @@ export default function CommandPalette() {
       const res = await createPage({ title: '새 페이지', content: '', emoji: '📄' });
       await refreshTree();
       navigate(`/pages/${res.data.data.id}`);
+    }},
+    // 새 페이지를 만든 뒤 템플릿 선택 모달로 이어진다
+    { id: 'new-tpl', label: '템플릿으로 새 페이지', icon: '📋', run: async () => {
+      const res = await createPage({ title: '새 페이지', content: '', emoji: '📄' });
+      await refreshTree();
+      setPickerForId(res.data.data.id);
     }},
     { id: 'toggle-dark', label: '다크모드 토글', icon: '🌙', run: () => toggleTheme() },
     { id: 'logout', label: '로그아웃', icon: '🚪', run: () => logout() },
@@ -92,49 +101,78 @@ export default function CommandPalette() {
     if (e.key === 'Enter')     { e.preventDefault(); if (items[cursor]) runItem(items[cursor]); }
   };
 
-  if (!open) return null;
+  if (!open && pickerForId === null) return null;
 
   return (
-    <div style={styles.overlay} onMouseDown={() => setOpen(false)}>
-      <div style={styles.box} onMouseDown={(e) => e.stopPropagation()}>
-        <input
-          ref={inputRef}
-          style={styles.input}
-          placeholder="페이지 검색 또는 명령 실행..."
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setCursor(0); }}
-          onKeyDown={onKeyDown}
-        />
-        <div style={styles.list}>
-          {sections.map((sec) => (
-            <div key={sec.label}>
-              <div style={styles.sectionLabel}>{sec.label}</div>
-              {items.slice(sec.start, sec.end).map((it, idx) => {
-                const realIdx = sec.start + idx;
-                const active = realIdx === cursor;
-                return (
-                  <div
-                    key={`${it.kind}-${it.id}`}
-                    style={{ ...styles.row, background: active ? colors.selectedBg : 'transparent' }}
-                    onMouseEnter={() => setCursor(realIdx)}
-                    onClick={() => runItem(it)}
-                  >
-                    <span>{it.kind === 'page' ? (it.emoji || '📄') : it.icon}</span>
-                    <span>{it.kind === 'page' ? it.title : it.label}</span>
-                  </div>
-                );
-              })}
+    <>
+      {open && (
+        <div style={styles.overlay} onMouseDown={() => setOpen(false)}>
+          <div style={styles.box} onMouseDown={(e) => e.stopPropagation()}>
+            <input
+              ref={inputRef}
+              style={styles.input}
+              placeholder="페이지 검색 또는 명령 실행..."
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setCursor(0); }}
+              onKeyDown={onKeyDown}
+            />
+            <div style={styles.list}>
+              {sections.map((sec) => (
+                <div key={sec.label}>
+                  <div style={styles.sectionLabel}>{sec.label}</div>
+                  {items.slice(sec.start, sec.end).map((it, idx) => {
+                    const realIdx = sec.start + idx;
+                    const active = realIdx === cursor;
+                    return (
+                      <div
+                        key={`${it.kind}-${it.id}`}
+                        style={{ ...styles.row, background: active ? colors.selectedBg : 'transparent' }}
+                        onMouseEnter={() => setCursor(realIdx)}
+                        onClick={() => runItem(it)}
+                      >
+                        <span>{it.kind === 'page' ? (it.emoji || '📄') : it.icon}</span>
+                        <span>{it.kind === 'page' ? it.title : it.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+              {items.length === 0 && (
+                <div style={styles.empty}>일치하는 결과가 없습니다.</div>
+              )}
             </div>
-          ))}
-          {items.length === 0 && (
-            <div style={styles.empty}>일치하는 결과가 없습니다.</div>
-          )}
+            <div style={styles.footer}>
+              <span>↑↓ 이동</span><span>↵ 선택</span><span>esc 닫기</span>
+            </div>
+          </div>
         </div>
-        <div style={styles.footer}>
-          <span>↑↓ 이동</span><span>↵ 선택</span><span>esc 닫기</span>
+      )}
+      {/* 템플릿 선택 모달: new-tpl 액션 실행 후 표시 */}
+      {pickerForId !== null && (
+        <div style={styles.overlay} onMouseDown={() => setPickerForId(null)}>
+          <div style={styles.box} onMouseDown={(e) => e.stopPropagation()}>
+            <div style={styles.sectionLabel}>템플릿 선택</div>
+            {TEMPLATES.map((t) => (
+              <div
+                key={t.id}
+                style={styles.row}
+                onClick={async () => {
+                  // 선택한 템플릿을 페이지에 적용 후 해당 페이지로 이동
+                  await updatePage(pickerForId, { title: t.name, content: t.content, emoji: t.emoji });
+                  await refreshTree();
+                  const id = pickerForId;
+                  setPickerForId(null);
+                  setOpen(false);
+                  navigate(`/pages/${id}`);
+                }}
+              >
+                <span>{t.emoji}</span><span>{t.name}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
 
