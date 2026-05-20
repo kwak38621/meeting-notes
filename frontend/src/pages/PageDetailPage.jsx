@@ -5,6 +5,7 @@ import { getPage, updatePage, deletePage } from '../api/pages';
 import { usePageContext } from '../context/PageContext';
 import Editor from '../components/Editor';
 import TagInput from '../components/TagInput';
+import { useTheme } from '../context/ThemeContext';
 
 const EMOJIS = ['📄', '📝', '📋', '💡', '🎯', '✅', '📊', '🗂️', '🏷️', '🔍'];
 
@@ -18,6 +19,9 @@ export default function PageDetailPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { refreshTree } = usePageContext();
   const saveTimer = useRef(null);
+  // 현재 테마 색상 주입
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   useEffect(() => {
     getPage(id).then((res) => {
@@ -56,7 +60,8 @@ export default function PageDetailPage() {
     save(title, content, e);
   };
 
-  if (!page) return <div style={{ padding: '40px', color: '#aaa' }}>로딩 중...</div>;
+  // 로딩 중 텍스트에도 muted 색상 적용
+  if (!page) return <div style={{ padding: '40px', color: colors.textMuted }}>로딩 중...</div>;
 
   return (
     <div style={styles.container}>
@@ -93,12 +98,16 @@ export default function PageDetailPage() {
   );
 }
 
-const styles = {
+// 색상 토큰을 받아 스타일 객체 생성
+const makeStyles = (c) => ({
   container: { padding: '40px 60px', maxWidth: '900px', margin: '0 auto' },
   header: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' },
   emoji: { fontSize: '32px', cursor: 'pointer', userSelect: 'none' },
-  titleInput: { flex: 1, border: 'none', outline: 'none', fontSize: '28px', fontWeight: '700', color: '#1a1a1a', background: 'transparent' },
-  emojiPicker: { position: 'absolute', top: '40px', left: 0, background: 'white', border: '1px solid #ddd', borderRadius: '8px', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' },
+  // 제목 입력: 텍스트 기본색, 배경 투명(부모 배경 그대로)
+  titleInput: { flex: 1, border: 'none', outline: 'none', fontSize: '28px', fontWeight: '700', color: c.text, background: 'transparent' },
+  // 이모지 선택 팝업: 기본 배경 + border 색상
+  emojiPicker: { position: 'absolute', top: '40px', left: 0, background: c.bg, border: `1px solid ${c.border}`, borderRadius: '8px', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' },
   emojiOption: { fontSize: '24px', cursor: 'pointer', padding: '4px', borderRadius: '4px' },
-  meta: { marginTop: '24px', fontSize: '12px', color: '#aaa' },
-};
+  // 메타 정보: muted 색상 사용
+  meta: { marginTop: '24px', fontSize: '12px', color: c.textMuted },
+});
