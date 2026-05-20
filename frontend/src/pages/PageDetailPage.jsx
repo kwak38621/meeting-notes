@@ -120,11 +120,12 @@ export default function PageDetailPage() {
 
 // 색상 토큰을 받아 스타일 객체 생성
 const makeStyles = (c) => ({
-  container: { padding: '40px 60px', maxWidth: '900px', margin: '0 auto' },
+  // 본문 최대 폭 760px + 가운데 정렬 + 넉넉한 세로 패딩으로 가독성 향상
+  container: { padding: '48px 32px', maxWidth: '760px', margin: '0 auto' },
   header: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' },
   emoji: { fontSize: '32px', cursor: 'pointer', userSelect: 'none' },
-  // 제목 입력: 텍스트 기본색, 배경 투명(부모 배경 그대로)
-  titleInput: { flex: 1, border: 'none', outline: 'none', fontSize: '28px', fontWeight: '700', color: c.text, background: 'transparent' },
+  // 제목 입력: 텍스트 기본색, 배경 투명, 크기 36px — Notion 스타일 큰 타이틀
+  titleInput: { flex: 1, border: 'none', outline: 'none', fontSize: '36px', fontWeight: '700', color: c.text, background: 'transparent' },
   // 이모지 선택 팝업: 기본 배경 + border 색상
   emojiPicker: { position: 'absolute', top: '40px', left: 0, background: c.bg, border: `1px solid ${c.border}`, borderRadius: '8px', padding: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px', zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.15)' },
   emojiOption: { fontSize: '24px', cursor: 'pointer', padding: '4px', borderRadius: '4px' },

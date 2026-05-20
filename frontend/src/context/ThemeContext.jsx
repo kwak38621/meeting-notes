@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { themes } from '../styles/theme';
 import { QUILL_DARK_CSS } from '../styles/quill-dark';
+import { QUILL_BASE_CSS } from '../styles/quill-base';
 
 const ThemeContext = createContext(null);
 
@@ -32,6 +33,16 @@ export function ThemeProvider({ children }) {
     document.body.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
     document.documentElement.style.background = c.bg;
   }, [mode]);
+
+  // Quill 본문 기본 스타일 주입 (테마 무관 — 최초 1회)
+  useEffect(() => {
+    const id = 'quill-base-overrides';
+    if (document.getElementById(id)) return;
+    const el = document.createElement('style');
+    el.id = id;
+    el.textContent = QUILL_BASE_CSS;
+    document.head.appendChild(el);
+  }, []);
 
   // dark 모드일 때만 Quill 오버라이드 CSS를 document.head에 주입
   useEffect(() => {
