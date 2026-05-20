@@ -100,4 +100,42 @@ class PageServiceTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("순환");
     }
+
+    @Test
+    void toggleFavorite_소유자_성공() {
+        User owner = mockUser();
+        Page page = Page.builder().title("p").user(owner).content("").emoji("📝").sortOrder(0).build();
+        when(pageRepository.findById(1L)).thenReturn(Optional.of(page));
+
+        pageService.toggleFavorite(1L, true, "test@test.com");
+
+        assertThat(page.isFavorite()).isTrue();
+    }
+
+    @Test
+    void toggleFavorite_타인페이지_예외() {
+        User owner = mockUser();
+        Page page = Page.builder().title("p").user(owner).content("").emoji("📝").sortOrder(0).build();
+        when(pageRepository.findById(1L)).thenReturn(Optional.of(page));
+
+        assertThatThrownBy(() -> pageService.toggleFavorite(1L, true, "other@test.com"))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("접근 권한");
+    }
+
+    @Test
+    void getFavorites_본인페이지만_반환() {
+        User user = mockUser();
+        ReflectionTestUtils.setField(user, "id", 10L);
+        Page p1 = Page.builder().title("a").user(user).content("").emoji("📝").sortOrder(0).build();
+        p1.setFavorite(true);
+        when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+        when(pageRepository.findByUserIdAndFavoriteTrueOrderByTitleAsc(10L))
+            .thenReturn(java.util.List.of(p1));
+
+        var result = pageService.getFavorites("test@test.com");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).title()).isEqualTo("a");
+    }
 }

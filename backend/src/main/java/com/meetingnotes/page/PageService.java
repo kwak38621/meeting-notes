@@ -115,6 +115,21 @@ public class PageService {
         return PageResponse.from(page);
     }
 
+    // 페이지 즐겨찾기 토글 — 소유자만 가능
+    public PageResponse toggleFavorite(Long id, boolean value, String email) {
+        Page page = getPageOwned(id, email);
+        page.setFavorite(value);
+        return PageResponse.from(page);
+    }
+
+    // 사용자의 즐겨찾기 페이지 목록 (제목순) — 읽기 전용 트랜잭션
+    @Transactional(readOnly = true)
+    public List<PageResponse> getFavorites(String email) {
+        User user = getUser(email);
+        return pageRepository.findByUserIdAndFavoriteTrueOrderByTitleAsc(user.getId())
+            .stream().map(PageResponse::from).toList();
+    }
+
     private Page getPageOwned(Long id, String email) {
         Page page = pageRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("페이지를 찾을 수 없습니다."));
