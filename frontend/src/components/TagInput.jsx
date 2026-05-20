@@ -2,10 +2,14 @@
 import { useEffect, useState } from 'react';
 import { getTags, createTag } from '../api/tags';
 import { addTag, removeTag } from '../api/pages';
+import { useTheme } from '../context/ThemeContext';
 
 export default function TagInput({ pageId, pageTags, onTagsChange }) {
   const [allTags, setAllTags] = useState([]);
   const [input, setInput] = useState('');
+  // 현재 테마 색상 주입
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   useEffect(() => {
     getTags().then((res) => setAllTags(res.data.data));
@@ -66,12 +70,17 @@ export default function TagInput({ pageId, pageTags, onTagsChange }) {
   );
 }
 
-const styles = {
+// 색상 토큰을 받아 스타일 객체 생성
+const makeStyles = (c) => ({
   container: { position: 'relative', marginBottom: '16px' },
   chips: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' },
-  chip: { background: '#e8e5de', padding: '2px 8px', borderRadius: '12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' },
-  chipRemove: { background: 'none', border: 'none', cursor: 'pointer', color: '#888', padding: 0, lineHeight: 1 },
-  input: { border: 'none', outline: 'none', fontSize: '13px', minWidth: '80px' },
-  dropdown: { position: 'absolute', top: '100%', left: 0, background: 'white', border: '1px solid #ddd', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', zIndex: 100 },
+  // 태그 칩: border 계열 색상 배경
+  chip: { background: c.border, padding: '2px 8px', borderRadius: '12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' },
+  // 칩 제거 버튼: muted 텍스트 색상
+  chipRemove: { background: 'none', border: 'none', cursor: 'pointer', color: c.textMuted, padding: 0, lineHeight: 1 },
+  // 태그 입력 필드: 배경 투명, 텍스트 기본색
+  input: { border: 'none', outline: 'none', fontSize: '13px', minWidth: '80px', background: 'transparent', color: c.text },
+  // 드롭다운: 기본 배경 + border 색상
+  dropdown: { position: 'absolute', top: '100%', left: 0, background: c.bg, border: `1px solid ${c.border}`, borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', zIndex: 100 },
   dropdownItem: { padding: '8px 12px', cursor: 'pointer', fontSize: '13px' },
-};
+});
