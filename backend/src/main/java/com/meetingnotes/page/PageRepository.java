@@ -11,4 +11,7 @@ public interface PageRepository extends JpaRepository<Page, Long> {
 
     @Query("SELECT p FROM Page p WHERE p.user.id = :userId AND (p.title LIKE %:q% OR p.content LIKE %:q%)")
     List<Page> searchByKeyword(@Param("userId") Long userId, @Param("q") String q);
+
+    // 사용자의 즐겨찾기 페이지를 제목순으로 조회
+    List<Page> findByUserIdAndFavoriteTrueOrderByTitleAsc(Long userId);
 }
