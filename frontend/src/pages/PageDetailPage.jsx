@@ -6,6 +6,7 @@ import { usePageContext } from '../context/PageContext';
 import Editor from '../components/Editor';
 import TagInput from '../components/TagInput';
 import { useTheme } from '../context/ThemeContext';
+import { useRecentPages } from '../hooks/useRecentPages';
 
 const EMOJIS = ['📄', '📝', '📋', '💡', '🎯', '✅', '📊', '🗂️', '🏷️', '🔍'];
 
@@ -19,9 +20,15 @@ export default function PageDetailPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const { refreshTree } = usePageContext();
   const saveTimer = useRef(null);
+  const { push: pushRecent } = useRecentPages();
   // 현재 테마 색상 주입
   const { colors } = useTheme();
   const styles = makeStyles(colors);
+
+  // 페이지 방문 시 최근 목록에 등록
+  useEffect(() => {
+    if (id) pushRecent(Number(id));
+  }, [id, pushRecent]);
 
   useEffect(() => {
     getPage(id).then((res) => {
