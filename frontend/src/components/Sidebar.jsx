@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePageContext } from '../context/PageContext';
+import { useTheme } from '../context/ThemeContext';
 import { createPage } from '../api/pages';
 import PageTreeNode from './PageTreeNode';
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const { pageTree, refreshTree } = usePageContext();
+  const { mode, toggle, colors } = useTheme();
+  const styles = makeStyles(colors);
   const [search, setSearch] = useState('');
 
   useEffect(() => { refreshTree(); }, [refreshTree]);
@@ -25,6 +28,9 @@ export default function Sidebar() {
       <div style={styles.header}>
         <span style={styles.logo}>📋</span>
         <span style={styles.userName}>{user?.name}</span>
+        <button style={styles.themeBtn} onClick={toggle} title="테마 전환">
+          {mode === 'light' ? '🌙' : '☀️'}
+        </button>
       </div>
       <input
         style={styles.search}
@@ -45,14 +51,15 @@ export default function Sidebar() {
   );
 }
 
-const styles = {
-  sidebar: { width: '240px', height: '100vh', background: '#f7f6f3', borderRight: '1px solid #e8e5de', display: 'flex', flexDirection: 'column', flexShrink: 0 },
-  header: { padding: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #e8e5de' },
+const makeStyles = (c) => ({
+  sidebar: { width: '240px', height: '100vh', background: c.sidebarBg, borderRight: `1px solid ${c.border}`, display: 'flex', flexDirection: 'column', flexShrink: 0 },
+  header: { padding: '16px', display: 'flex', alignItems: 'center', gap: '8px', borderBottom: `1px solid ${c.border}` },
   logo: { fontSize: '20px' },
-  userName: { fontSize: '14px', fontWeight: '600', color: '#1a1a1a' },
-  search: { margin: '8px', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', outline: 'none' },
+  userName: { fontSize: '14px', fontWeight: '600', color: c.text, flex: 1 },
+  themeBtn: { background: 'transparent', border: 0, cursor: 'pointer', fontSize: '16px', padding: '4px' },
+  search: { margin: '8px', padding: '6px 10px', border: `1px solid ${c.border}`, borderRadius: '4px', fontSize: '13px', outline: 'none', background: c.inputBg, color: c.text },
   tree: { flex: 1, overflowY: 'auto', padding: '4px' },
-  footer: { padding: '12px', borderTop: '1px solid #e8e5de', display: 'flex', flexDirection: 'column', gap: '8px' },
-  newPageBtn: { padding: '8px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' },
-  logoutBtn: { padding: '8px', background: 'transparent', color: '#888', border: '1px solid #ddd', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' },
-};
+  footer: { padding: '12px', borderTop: `1px solid ${c.border}`, display: 'flex', flexDirection: 'column', gap: '8px' },
+  newPageBtn: { padding: '8px', background: c.accent, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' },
+  logoutBtn: { padding: '8px', background: 'transparent', color: c.textMuted, border: `1px solid ${c.border}`, borderRadius: '4px', cursor: 'pointer', fontSize: '13px' },
+});
