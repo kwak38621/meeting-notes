@@ -23,6 +23,16 @@ export function ThemeProvider({ children }) {
     try { localStorage.setItem(STORAGE_KEY, mode); } catch {}
   }, [mode]);
 
+  // body 배경/글자색/마진/폰트를 테마와 동기화 — 다크 모드에서 흰 테두리(기본 margin) 방지
+  useEffect(() => {
+    const c = themes[mode];
+    document.body.style.margin = '0';
+    document.body.style.background = c.bg;
+    document.body.style.color = c.text;
+    document.body.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif';
+    document.documentElement.style.background = c.bg;
+  }, [mode]);
+
   // dark 모드일 때만 Quill 오버라이드 CSS를 document.head에 주입
   useEffect(() => {
     const id = 'quill-dark-overrides';
