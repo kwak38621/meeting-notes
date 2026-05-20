@@ -5,10 +5,14 @@ import { getPage, updatePage, deletePage } from '../api/pages';
 import { usePageContext } from '../context/PageContext';
 import Editor from '../components/Editor';
 import TagInput from '../components/TagInput';
+import TemplatePicker from '../components/TemplatePicker';
 import { useTheme } from '../context/ThemeContext';
 import { useRecentPages } from '../hooks/useRecentPages';
 
 const EMOJIS = ['📄', '📝', '📋', '💡', '🎯', '✅', '📊', '🗂️', '🏷️', '🔍'];
+
+// 빈 본문 판정 (Quill 빈 에디터는 '<p><br></p>'로 표현됨)
+const isEmptyContent = (c) => !c || c === '<p><br></p>' || c.replace(/<[^>]*>/g, '').trim() === '';
 
 export default function PageDetailPage() {
   const { id } = useParams();
@@ -67,6 +71,13 @@ export default function PageDetailPage() {
     save(title, content, e);
   };
 
+  // 템플릿 선택 시 content와 emoji를 교체하고 자동 저장 예약
+  const handlePickTemplate = (tpl) => {
+    setContent(tpl.content);
+    if (!emoji || emoji === '📄') setEmoji(tpl.emoji);
+    scheduleAutoSave(title, tpl.content, (!emoji || emoji === '📄') ? tpl.emoji : emoji);
+  };
+
   // 로딩 중 텍스트에도 muted 색상 적용
   if (!page) return <div style={{ padding: '40px', color: colors.textMuted }}>로딩 중...</div>;
 
@@ -97,6 +108,8 @@ export default function PageDetailPage() {
         />
       </div>
       <TagInput pageId={Number(id)} pageTags={tags} onTagsChange={setTags} />
+      {/* 본문이 비어 있을 때만 템플릿 선택 띠 표시 */}
+      {isEmptyContent(content) && <TemplatePicker onPick={handlePickTemplate} />}
       <Editor value={content} onChange={handleContentChange} />
       <div style={styles.meta}>
         마지막 수정: {page.updatedAt ? new Date(page.updatedAt).toLocaleString('ko-KR') : '-'}
