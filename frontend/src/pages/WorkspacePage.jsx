@@ -3,6 +3,7 @@ import { PageProvider } from '../context/PageContext';
 import Sidebar from '../components/Sidebar';
 import PageDetailPage from './PageDetailPage';
 import { useTheme } from '../context/ThemeContext';
+import CommandPalette from '../components/CommandPalette';
 
 export default function WorkspacePage() {
   // 현재 테마 색상 주입
@@ -20,6 +21,8 @@ export default function WorkspacePage() {
           </Routes>
         </div>
       </div>
+      {/* 워크스페이스 전체에서 Ctrl+K 커맨드 팔레트 접근 가능 */}
+      <CommandPalette />
     </PageProvider>
   );
 }
