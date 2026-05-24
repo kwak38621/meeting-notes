@@ -43,6 +43,14 @@ export default function CommandPalette() {
     if (open && inputRef.current) inputRef.current.focus();
   }, [open]);
 
+  // 템플릿 선택 모달 열렸을 때 ESC로 닫기
+  useEffect(() => {
+    if (pickerForId === null) return;
+    const onKey = (e) => { if (e.key === 'Escape') setPickerForId(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pickerForId]);
+
   // 액션 레지스트리
   const actions = useMemo(() => ([
     { id: 'new-page', label: '새 페이지 만들기', icon: '➕', run: async () => {

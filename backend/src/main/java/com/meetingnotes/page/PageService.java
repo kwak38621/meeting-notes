@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -39,11 +42,26 @@ public class PageService {
         return PageResponse.from(pageRepository.save(page));
     }
 
+    // 트리 조회 — 단일 쿼리로 모든 페이지를 가져와 메모리에서 부모-자식 그래프 구성 (N+1 회피)
     @Transactional(readOnly = true)
     public List<PageTreeResponse> getTree(String email) {
         User user = getUser(email);
-        return pageRepository.findByUserIdAndParentIsNullOrderBySortOrderAsc(user.getId())
-            .stream().map(PageTreeResponse::from).toList();
+        List<Page> all = pageRepository.findAllByUserIdForTree(user.getId());
+        Map<Long, List<Page>> byParentId = new HashMap<>();
+        List<Page> roots = new ArrayList<>();
+        for (Page p : all) {
+            Long parentId = p.getParent() != null ? p.getParent().getId() : null;
+            if (parentId == null) roots.add(p);
+            else byParentId.computeIfAbsent(parentId, k -> new ArrayList<>()).add(p);
+        }
+        return roots.stream().map(p -> buildTree(p, byParentId)).toList();
+    }
+
+    // 메모리 맵 기반으로 PageTreeResponse 재귀 빌드
+    private PageTreeResponse buildTree(Page p, Map<Long, List<Page>> byParentId) {
+        List<Page> kids = byParentId.getOrDefault(p.getId(), List.of());
+        List<PageTreeResponse> childResponses = kids.stream().map(c -> buildTree(c, byParentId)).toList();
+        return new PageTreeResponse(p.getId(), p.getTitle(), p.getEmoji(), p.isFavorite(), childResponses);
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +85,14 @@ public class PageService {
     public List<PageResponse> search(String q, String email) {
         User user = getUser(email);
         return pageRepository.searchByKeyword(user.getId(), q)
+            .stream().map(PageResponse::from).toList();
+    }
+
+    // 특정 태그로 필터링된 페이지 목록 (소유자 검증 포함)
+    @Transactional(readOnly = true)
+    public List<PageResponse> getByTag(Long tagId, String email) {
+        User user = getUser(email);
+        return pageRepository.findByUserIdAndTagId(user.getId(), tagId)
             .stream().map(PageResponse::from).toList();
     }
 

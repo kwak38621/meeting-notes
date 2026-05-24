@@ -100,4 +100,12 @@ public class PageController {
             @AuthenticationPrincipal UserDetails user) {
         return ResponseEntity.ok(ApiResponse.ok(pageService.getFavorites(user.getUsername())));
     }
+
+    // 태그별 페이지 목록
+    @GetMapping("/by-tag/{tagId}")
+    public ResponseEntity<ApiResponse<List<PageResponse>>> getByTag(
+            @PathVariable Long tagId,
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(ApiResponse.ok(pageService.getByTag(tagId, user.getUsername())));
+    }
 }

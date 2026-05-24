@@ -13,3 +13,5 @@ export const removeTag = (pageId, tagId) => api.delete(`/pages/${pageId}/tags/${
 export const toggleFavorite = (id, favorite) => api.patch(`/pages/${id}/favorite`, { favorite });
 // 사용자의 즐겨찾기 페이지 목록
 export const getFavorites = () => api.get('/pages/favorites');
+// 특정 태그가 부착된 페이지 목록
+export const getPagesByTag = (tagId) => api.get(`/pages/by-tag/${tagId}`);
