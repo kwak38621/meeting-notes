@@ -83,4 +83,29 @@ public class PageController {
             @AuthenticationPrincipal UserDetails user) {
         return ResponseEntity.ok(ApiResponse.ok(pageService.move(id, body.get("parentId"), user.getUsername())));
     }
+
+    // 즐겨찾기 토글 (body: {favorite: boolean})
+    @PatchMapping("/{id}/favorite")
+    public ResponseEntity<ApiResponse<PageResponse>> toggleFavorite(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body,
+            @AuthenticationPrincipal UserDetails user) {
+        boolean value = Boolean.TRUE.equals(body.get("favorite"));
+        return ResponseEntity.ok(ApiResponse.ok(pageService.toggleFavorite(id, value, user.getUsername())));
+    }
+
+    // 사용자의 즐겨찾기 페이지 목록
+    @GetMapping("/favorites")
+    public ResponseEntity<ApiResponse<List<PageResponse>>> getFavorites(
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(ApiResponse.ok(pageService.getFavorites(user.getUsername())));
+    }
+
+    // 태그별 페이지 목록
+    @GetMapping("/by-tag/{tagId}")
+    public ResponseEntity<ApiResponse<List<PageResponse>>> getByTag(
+            @PathVariable Long tagId,
+            @AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(ApiResponse.ok(pageService.getByTag(tagId, user.getUsername())));
+    }
 }

@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:mysql://${DB_HOST:localhost}:3306/meeting_notes?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
-    username: ${DB_USER:appuser}
-    password: ${DB_PASSWORD:apppass1234}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -13,7 +13,7 @@ server:
   port: 8080
 
 jwt:
-  secret: ${JWT_SECRET:meetingNotesSecretKey2026!@#$%^&*()SuperLongSecretForHS256Algorithm}
+  secret: ${JWT_SECRET}
   access-token-expiry: 900000
   refresh-token-expiry: 604800000
 

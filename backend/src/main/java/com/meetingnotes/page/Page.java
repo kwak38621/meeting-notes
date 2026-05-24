@@ -43,6 +43,10 @@ public class Page extends BaseEntity {
     @Column(name = "sort_order")
     private int sortOrder;
 
+    // 즐겨찾기 여부 (기본값: false)
+    @Column(nullable = false)
+    private boolean favorite = false;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
         name = "page_tags",
@@ -77,5 +81,10 @@ public class Page extends BaseEntity {
 
     public void setParent(Page parent) {
         this.parent = parent;
+    }
+
+    // 즐겨찾기 토글용 setter
+    public void setFavorite(boolean favorite) {
+        this.favorite = favorite;
     }
 }

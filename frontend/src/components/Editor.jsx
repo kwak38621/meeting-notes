@@ -3,12 +3,16 @@ import { useEffect, useRef } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import DOMPurify from 'dompurify';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Editor({ value, onChange }) {
   const containerRef = useRef(null);
   const quillRef = useRef(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  // 현재 테마 색상 주입 (컨테이너 배경에만 적용, Quill 내부 스타일 변환 제외)
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
 
   useEffect(() => {
     if (quillRef.current) return;
@@ -43,5 +47,11 @@ export default function Editor({ value, onChange }) {
     }
   }, [value]);
 
-  return <div ref={containerRef} style={{ minHeight: '400px' }} />;
+  // 에디터 컨테이너 배경만 테마 색상 적용
+  return <div ref={containerRef} style={styles.container} />;
 }
+
+// 색상 토큰을 받아 컨테이너 스타일 생성 (Quill 내부 스타일은 quill-dark.css로 별도 관리)
+const makeStyles = (c) => ({
+  container: { minHeight: '400px', background: c.bg },
+});
