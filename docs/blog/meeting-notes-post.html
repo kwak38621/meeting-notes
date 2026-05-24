@@ -126,7 +126,7 @@ public class MeetingNotesApplication {
     <li><code>@Service</code>: PageService, AuthService, TagService</li>
     <li><code>@Repository</code>(자동 구현): PageRepository, TagRepository, UserRepository</li>
     <li><code>@Component</code>: JwtAuthenticationFilter, JwtUtil</li>
-    <li><code>@Configuration</code>: SecurityConfig, CorsConfig, JpaAuditingConfig</li>
+    <li><code>@Configuration</code>: SecurityConfig, CorsConfig, JpaAuditingConfig, JwtConfig</li>
   </ul>
 
   <h3 style="font-size:17px;margin-top:20px;">2) 빈(Bean) 생성과 의존성 주입</h3>
@@ -499,17 +499,20 @@ public record PageResponse(
     Long id,
     String title,
     String content,
+    Long parentId,
     String emoji,
     boolean favorite,
     List&lt;TagResponse&gt; tags,
+    LocalDateTime createdAt,
     LocalDateTime updatedAt
 ) {
     public static PageResponse from(Page page) {
         return new PageResponse(
             page.getId(), page.getTitle(), page.getContent(),
+            page.getParent() != null ? page.getParent().getId() : null,
             page.getEmoji(), page.isFavorite(),
             page.getTags().stream().map(TagResponse::from).toList(),
-            page.getUpdatedAt()
+            page.getCreatedAt(), page.getUpdatedAt()
         );
     }
 }</code></pre>
@@ -523,28 +526,41 @@ public record PageResponse(
 
   <p style="margin-top:16px;"><b>📄 공통 응답 래퍼:</b> <code>common/ApiResponse.java</code></p>
   <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>// 모든 응답을 같은 모양으로 통일
-public record ApiResponse&lt;T&gt;(boolean success, T data, String message) {
-    public static &lt;T&gt; ApiResponse&lt;T&gt; ok(T data) {
-        return new ApiResponse&lt;&gt;(true, data, null);
+@Getter
+public class ApiResponse&lt;T&gt; {
+    private final boolean success;
+    private final String message;
+    private final T data;
+
+    private ApiResponse(boolean success, String message, T data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
     }
-    public static &lt;T&gt; ApiResponse&lt;T&gt; fail(String message) {
-        return new ApiResponse&lt;&gt;(false, null, message);
+
+    public static &lt;T&gt; ApiResponse&lt;T&gt; ok(T data) {
+        return new ApiResponse&lt;&gt;(true, "OK", data);
+    }
+    public static ApiResponse&lt;Void&gt; fail(String message) {
+        return new ApiResponse&lt;&gt;(false, message, null);
     }
 }</code></pre>
 
   <p>그래서 클라이언트가 받는 JSON은 늘 이런 모양이에요:</p>
   <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>{
   "success": true,
+  "message": "OK",
   "data": {
     "id": 42,
     "title": "주간 회의",
     "content": "&lt;p&gt;안건 1...&lt;/p&gt;",
+    "parentId": null,
     "emoji": "📋",
     "favorite": false,
     "tags": [{"id": 1, "name": "회의"}],
+    "createdAt": "2026-05-20T09:12:00",
     "updatedAt": "2026-05-21T14:30:00"
-  },
-  "message": null
+  }
 }</code></pre>
 
   <!-- ============ 7단계: 예외 처리 ============ -->
@@ -556,7 +572,7 @@ public record ApiResponse&lt;T&gt;(boolean success, T data, String message) {
     그러면 Spring이 <code>@RestControllerAdvice</code>를 찾아요.
   </p>
 
-  <p style="margin-top:16px;"><b>📄 파일:</b> <code>common/GlobalExceptionHandler.java</code></p>
+  <p style="margin-top:16px;"><b>📄 파일:</b> <code>common/GlobalExceptionHandler.java</code> (핵심 핸들러만 발췌 — 실제 코드엔 인증/인가 예외 핸들러도 함께 등록되어 있어요)</p>
   <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>@RestControllerAdvice                              // ← 모든 컨트롤러에서 발생한 예외를 가로챔
 public class GlobalExceptionHandler {
 
@@ -635,15 +651,14 @@ public List&lt;PageTreeResponse&gt; getTree(String email) {
 }</code></pre>
 
   <p>실제로 나가는 쿼리:</p>
-  <pre style="background:#fff5f5;border:1px solid #ffcccc;border-radius:6px;padding:12px;font-size:12px;font-family:monospace;line-height:1.5;">
-SELECT * FROM pages WHERE user_id = 1 AND parent_id IS NULL;       -- 루트 5개
+  <pre style="background:#fff5f5;border:1px solid #ffcccc;border-radius:6px;padding:12px;font-size:12px;font-family:monospace;line-height:1.5;"><code>SELECT * FROM pages WHERE user_id = 1 AND parent_id IS NULL;       -- 루트 5개
 SELECT * FROM pages WHERE parent_id = 1;  -- 루트1의 자식
 SELECT * FROM pages WHERE parent_id = 2;  -- 루트2의 자식
 SELECT * FROM pages WHERE parent_id = 3;  -- 루트3의 자식
 SELECT * FROM pages WHERE parent_id = 4;
 SELECT * FROM pages WHERE parent_id = 5;
 SELECT * FROM pages WHERE parent_id = 11; -- 손자… 무한 증식
-...</pre>
+...</code></pre>
 
   <p><b>해결:</b> 사용자 페이지를 통째로 한 번에 가져오고 메모리에서 트리 구성.</p>
   <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>@Transactional(readOnly = true)
