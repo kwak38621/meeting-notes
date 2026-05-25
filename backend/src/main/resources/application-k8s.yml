@@ -1,0 +1,16 @@
+# K8s 환경 전용 설정. SPRING_PROFILES_ACTIVE=k8s일 때 적용.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true

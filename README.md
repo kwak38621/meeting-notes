@@ -70,6 +70,51 @@ docs/      플랜 및 디자인 스펙
 - `application.yml`은 환경변수만 사용 — 기본값 없음
 - 운영 배포 시 `JWT_SECRET`은 충분히 긴 랜덤 값으로 새로 생성할 것
 
+## Kubernetes (로컬, Docker Desktop)
+
+자세한 설계: [docs/superpowers/specs/2026-05-25-kubernetes-apply-design.md](docs/superpowers/specs/2026-05-25-kubernetes-apply-design.md)
+
+### 사전 준비
+1. Docker Desktop → Settings → Kubernetes → Enable
+2. ingress-nginx 컨트롤러 설치:
+   ```bash
+   kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+   ```
+3. `C:\Windows\System32\drivers\etc\hosts`에 `127.0.0.1 meeting-notes.local` 추가
+4. Secret 파일 준비:
+   ```bash
+   cp k8s/mysql/secret.yaml.example k8s/mysql/secret.yaml
+   cp k8s/backend/secret.yaml.example k8s/backend/secret.yaml
+   # 두 파일의 REPLACE_ME 값을 실제 비밀번호로 교체
+   # mysql-secret의 MYSQL_PASSWORD == backend-secret의 DB_PASSWORD 여야 함
+   ```
+
+### 이미지 빌드 + 배포
+```bash
+docker build -t meeting-notes-backend:dev-r1 ./backend
+docker build -t meeting-notes-frontend:dev ./frontend
+
+kubectl apply -f k8s/00-namespace.yaml
+kubectl apply -f k8s/mysql/
+kubectl apply -f k8s/backend/
+kubectl apply -f k8s/frontend/
+```
+
+### 접속
+브라우저 → http://meeting-notes.local
+
+### 자주 쓰는 명령
+```bash
+kubectl -n meeting-notes get all
+kubectl -n meeting-notes logs -f deploy/backend
+kubectl -n meeting-notes rollout restart deployment/backend
+kubectl -n meeting-notes rollout undo deployment/backend
+```
+
+### 운영 노트
+- backend 코드 수정 시: 새 태그(`:dev-r2` 등)로 빌드 + `k8s/backend/deployment.yaml`의 image 태그 갱신 + `kubectl apply`. Docker Desktop K8s는 같은 태그로 재빌드해도 노드 이미지를 갱신하지 않으므로 태그를 매번 바꾸는 게 안전.
+- `secret.yaml`을 쉘에서 생성할 땐 CRLF 섞이지 않도록 `printf` + `tr -d '\r\n'`로. 비번 끝에 `\r` 붙으면 mysql Access denied.
+
 ## 라이선스
 
 개인 프로젝트
