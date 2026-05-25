@@ -119,6 +119,11 @@
 
 ---
 
+## 다음 세션 남은 일 (2026-05-26 이후)
+
+- [ ] `git push origin main` — 현재 `origin/main`보다 17 커밋 앞섬 (k8s 14 + 머지 1 + 기존 미푸시 2). force push 아닌 일반 push.
+- [ ] `docs/learn/` (kubernetes.html, kubernetes-apply.html 학습 자료) 처리 — git에 올릴지 .gitignore에 넣을지 결정
+
 ## 완료 (2026-05-25)
 13개 커밋:
 1. `34127c9` chore(k8s): ignore secret manifests
