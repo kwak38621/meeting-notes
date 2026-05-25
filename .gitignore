@@ -22,3 +22,7 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+# Kubernetes secrets (실제 secret.yaml은 절대 커밋하지 않는다)
+k8s/**/secret.yaml
+!k8s/**/secret.yaml.example
