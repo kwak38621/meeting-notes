@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: meeting-notes
+data:
+  DB_HOST: "mysql-svc"
+  DB_NAME: "meeting_notes"
+  CORS_ORIGIN: "http://meeting-notes.local"
+  SPRING_PROFILES_ACTIVE: "k8s"
