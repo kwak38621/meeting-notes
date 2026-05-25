@@ -109,8 +109,8 @@ kubectl -n meeting-notes port-forward svc/mysql-svc 3307:3306
 - `backend/Dockerfile` 추가.
 
 ### Dockerfile (multi-stage)
-- Stage 1 (`gradle:8-jdk21`): `./gradlew bootJar` → `build/libs/*.jar`
-- Stage 2 (`eclipse-temurin:21-jre`): jar 복사, `ENTRYPOINT ["java","-jar","app.jar"]`
+- Stage 1 (`gradle:8-jdk17`): `./gradlew bootJar` → `build/libs/meeting-notes.jar`
+- Stage 2 (`eclipse-temurin:17-jre`): jar 복사, `ENTRYPOINT ["java","-jar","app.jar"]`
 - 빌드: `docker build -t meeting-notes-backend:dev ./backend`
 
 ### 리소스
