@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>meeting-notes를 쿠버네티스에 올리는 길</title>
+</head>
+<body style="margin:0;background:#fff;">
+<!--
+티스토리 포스트용 HTML.
+사용법: 티스토리 글쓰기 → 우측 상단 "기본모드" 드롭다운 → "HTML" → 아래 <article> 안 복붙.
+인라인 스타일 사용 — 티스토리가 외부 CSS를 자주 막기 때문.
+-->
+<article style="max-width:760px;margin:0 auto;padding:40px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.85;color:#24292f;font-size:16px;">
+
+  <!-- ============ 인트로 ============ -->
+  <h1 style="font-size:30px;font-weight:700;border-bottom:2px solid #d0d7de;padding-bottom:12px;margin-top:0;">
+    🚀 Spring Boot + React 프로젝트를 쿠버네티스에 올리는 길 — 단계별 가이드
+  </h1>
+  <p style="color:#57606a;font-size:14px;margin-top:-6px;">
+    Notion 스타일 메모 앱(Spring Boot + React + MySQL)을 K8s로 옮기는 전 과정. 한 번에 다 옮기지 말고 점진적으로.
+  </p>
+
+  <!-- ============ Before / After ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">📸 지금 vs 옮긴 후 — 한눈에 비교</h2>
+
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+    <thead>
+      <tr style="background:#f6f8fa;">
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;width:50%;">🧱 지금 (docker-compose)</th>
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;width:50%;">☸️ 옮긴 후 (Kubernetes)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;vertical-align:top;">
+          - 내 노트북에서만 돌아감<br>
+          - MySQL만 컨테이너, backend/frontend는 직접 실행<br>
+          - 죽으면 내가 다시 띄움<br>
+          - 서버 한 대<br>
+          - 새 버전 = 직접 빌드 후 재시작
+        </td>
+        <td style="padding:10px;border:1px solid #d0d7de;vertical-align:top;">
+          - 클러스터에서 자동으로<br>
+          - backend / frontend 컨테이너화<br>
+          - 죽으면 알아서 살아남<br>
+          - 여러 서버에 분산 가능<br>
+          - 새 버전 = 이미지 푸시 → 무중단 배포
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============ 목표 구상도 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🗺️ 목표 구상도</h2>
+
+  <!-- 목표 구상도 (CSS 박스) -->
+  <div style="border:2px solid #d0d7de;border-radius:10px;padding:24px;background:#f6f8fa;margin:20px 0;">
+
+    <!-- 사용자 -->
+    <div style="text-align:center;margin-bottom:6px;">
+      <div style="display:inline-block;background:#fff;border:2px solid #57606a;border-radius:50px;padding:8px 28px;font-weight:700;">👤 사용자</div>
+    </div>
+    <div style="text-align:center;color:#57606a;font-size:22px;line-height:1;margin:6px 0;">↓</div>
+
+    <!-- Ingress -->
+    <div style="border:2px solid #d4a72c;border-radius:8px;padding:14px;background:#fff8c5;text-align:center;">
+      <div style="font-weight:700;color:#9a6700;font-size:16px;">🚪 안내 데스크 (Ingress)</div>
+      <div style="font-size:13px;color:#57606a;margin-top:6px;">/ → 프론트 &nbsp;&nbsp;|&nbsp;&nbsp; /api/* → 백엔드</div>
+    </div>
+    <div style="text-align:center;color:#0969da;font-size:13px;margin:8px 0;">↓ &nbsp; URL 보고 경로 결정 &nbsp; ↓</div>
+
+    <!-- Services + Pods 두 컬럼 -->
+    <table style="width:100%;border-collapse:separate;border-spacing:10px 0;">
+      <tr>
+        <!-- Frontend column -->
+        <td style="width:50%;vertical-align:top;">
+          <div style="border:2px solid #0969da;border-radius:8px;padding:12px;background:#ddf4ff;text-align:center;">
+            <div style="font-weight:700;color:#0969da;">📞 프론트엔드 대표번호</div>
+            <div style="font-size:12px;color:#57606a;">(Service)</div>
+          </div>
+          <div style="text-align:center;color:#57606a;font-size:20px;line-height:1;margin:6px 0;">↓</div>
+          <div style="border:2px solid #1a7f37;border-radius:8px;padding:12px;background:#dafbe1;text-align:center;">
+            <div style="font-weight:700;color:#1a7f37;">📦 React 상자</div>
+            <div style="font-size:12px;color:#57606a;">(1개)</div>
+          </div>
+        </td>
+        <!-- Backend column -->
+        <td style="width:50%;vertical-align:top;">
+          <div style="border:2px solid #0969da;border-radius:8px;padding:12px;background:#ddf4ff;text-align:center;">
+            <div style="font-weight:700;color:#0969da;">📞 백엔드 대표번호</div>
+            <div style="font-size:12px;color:#57606a;">(Service)</div>
+          </div>
+          <div style="text-align:center;color:#57606a;font-size:20px;line-height:1;margin:6px 0;">↓</div>
+          <div style="border:2px solid #1a7f37;border-radius:8px;padding:12px;background:#dafbe1;text-align:center;">
+            <div style="font-weight:700;color:#1a7f37;">📦 Spring 상자</div>
+            <div style="font-size:12px;color:#57606a;">(2~3개)</div>
+          </div>
+          <div style="text-align:center;color:#57606a;font-size:20px;line-height:1;margin:6px 0;">↓</div>
+          <div style="border:2px solid #cf222e;border-radius:8px;padding:12px;background:#ffebe9;text-align:center;">
+            <div style="font-weight:700;color:#cf222e;">🗄️ MySQL</div>
+            <div style="font-size:12px;color:#57606a;">별도 운영 (K8s 밖)</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- ConfigMap + Secret -->
+    <div style="margin-top:18px;padding-top:14px;border-top:1px dashed #d0d7de;">
+      <table style="width:100%;border-collapse:separate;border-spacing:10px 0;">
+        <tr>
+          <td style="width:50%;vertical-align:top;">
+            <div style="border:2px solid #8250df;border-radius:8px;padding:10px;background:#fbefff;text-align:center;">
+              <div style="font-weight:700;color:#8250df;">⚙️ 설정값 보관함 (ConfigMap)</div>
+              <div style="font-size:12px;color:#57606a;">CORS_ORIGIN, DB_HOST 등</div>
+            </div>
+          </td>
+          <td style="width:50%;vertical-align:top;">
+            <div style="border:2px solid #8250df;border-radius:8px;padding:10px;background:#fbefff;text-align:center;">
+              <div style="font-weight:700;color:#8250df;">🔐 비밀 금고 (Secret)</div>
+              <div style="font-size:12px;color:#57606a;">DB_PASSWORD, JWT_SECRET</div>
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ 진행 단계 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">📍 전체 진행 단계 (점진적)</h2>
+
+  <ol style="line-height:2;">
+    <li><b>Phase 1.</b> Dockerfile 작성 — backend, frontend 각각</li>
+    <li><b>Phase 2.</b> 로컬 K8s 환경 켜기 (Docker Desktop Kubernetes)</li>
+    <li><b>Phase 3.</b> MySQL 어떻게 할지 정하기 (보통 K8s 밖에 둠)</li>
+    <li><b>Phase 4.</b> Backend Deployment + Service</li>
+    <li><b>Phase 5.</b> Frontend Deployment + Service</li>
+    <li><b>Phase 6.</b> Ingress로 묶기 — 외부에서 한 도메인으로 접근</li>
+    <li><b>Phase 7.</b> 이미지 레지스트리에 푸시 + 실제 클라우드 배포</li>
+  </ol>
+
+  <!-- ============ 폴더 구조 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">📁 새로 생길 파일들</h2>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.7;"><code>meeting-notes/
+├── backend/
+│   ├── <b>Dockerfile</b>            ← 새로 만들어야 함
+│   └── ... (기존 코드)
+├── frontend/
+│   ├── <b>Dockerfile</b>            ← 새로 만들어야 함
+│   ├── <b>nginx.conf</b>            ← nginx 설정
+│   └── ... (기존 코드)
+├── <b>k8s/</b>                      ← K8s 설계도 폴더 새로
+│   ├── 10-configmap.yaml
+│   ├── 11-secret.yaml.example   ← git 커밋 (실제 secret은 .gitignore)
+│   ├── 30-backend-deployment.yaml
+│   ├── 31-backend-service.yaml
+│   ├── 40-frontend-deployment.yaml
+│   ├── 41-frontend-service.yaml
+│   └── 50-ingress.yaml
+└── docker-compose.yml           (그대로 유지 — MySQL은 여기서)</code></pre>
+
+  <!-- ============ Phase 1 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🐳 Phase 1 — Dockerfile 작성</h2>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">backend/Dockerfile</h3>
+  <p>Gradle <b>빌드 단계와 실행 단계를 분리</b>해서(<span style="color:#57606a;font-size:13px;">multi-stage build — Docker 이미지를 여러 단계로 쪼개서 만드는 기법. 빌드용 이미지에서 결과물만 뽑아 가벼운 실행 이미지에 옮기는 방식</span>) 최종 이미지 크기를 줄여요.</p>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># 1단계: 빌드 (Gradle 캐시 활용)
+FROM gradle:8.5-jdk17 AS builder
+WORKDIR /app
+COPY build.gradle settings.gradle ./
+COPY src ./src
+RUN gradle bootJar --no-daemon
+
+# 2단계: 실행 (가벼운 JRE만)
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+COPY --from=builder /app/build/libs/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java","-jar","/app/app.jar"]</code></pre>
+
+  <p style="color:#57606a;font-size:13px;">📝 <b>용어:</b> <b>Gradle</b> = 자바 빌드 도구 (Maven 같은 거). <b>JRE</b> = Java Runtime Environment, 자바 실행만 가능한 최소 런타임 (JDK보다 가벼움).</p>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">frontend/Dockerfile</h3>
+  <p>Vite로 빌드한 정적 파일을 <b>nginx</b>(<span style="color:#57606a;font-size:13px;">가볍고 빠른 웹서버. 정적 파일 서빙 / 리버스 프록시로 많이 씀</span>)로 서빙.</p>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># 1단계: 빌드
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# 2단계: nginx로 서빙
+FROM nginx:alpine
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx","-g","daemon off;"]</code></pre>
+
+  <p style="color:#57606a;font-size:13px;">📝 <b>npm ci</b> = package-lock.json 기준 정확히 설치. <code>npm install</code>보다 빠르고 엄격해서 CI/CD에서 권장.</p>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">frontend/nginx.conf</h3>
+  <p>React Router 때문에 <b>SPA fallback</b>(<span style="color:#57606a;font-size:13px;">SPA는 라우팅을 브라우저가 함. 사용자가 /pages/42 같은 URL로 직접 접속하면 서버엔 그 파일이 없어 404 발생 → 어떤 URL이든 index.html을 돌려주고 React가 알아서 처리하게 함</span>) 필요.</p>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>server {
+  listen 80;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  location / {
+    try_files $uri $uri/ /index.html;   # SPA fallback
+  }
+}</code></pre>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">이미지 빌드 테스트</h3>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>docker build -t meeting-notes-backend:1.0 ./backend
+docker build -t meeting-notes-frontend:1.0 ./frontend
+
+# 잘 뜨는지 확인
+docker run -p 8080:8080 meeting-notes-backend:1.0
+docker run -p 3000:80 meeting-notes-frontend:1.0</code></pre>
+
+  <!-- ============ Phase 2 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">💻 Phase 2 — 로컬 K8s 환경 켜기</h2>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>가장 쉬운 길:</b> Docker Desktop 설정 → Kubernetes 탭 → <b>"Enable Kubernetes" 체크</b>. 설치 끝나면 터미널에서 확인.
+  </div>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>kubectl cluster-info                  # 클러스터 정상 동작 확인
+kubectl config current-context        # docker-desktop 이어야 함</code></pre>
+
+  <!-- ============ Phase 3 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🗄️ Phase 3 — MySQL은 어떻게? (가장 중요한 결정)</h2>
+
+  <div style="background:#fff8c5;border-left:4px solid #d4a72c;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>🤔 잠깐 — 정말 K8s에 올려야 하나?</b><br>
+    DB를 K8s에 올리는 건 까다롭고, <b>실무에서도 흔히 분리</b>합니다. 학습/소규모 프로젝트에선 <b>안 올리는 게 더 현명할 수 있어요</b>.
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+    <thead>
+      <tr style="background:#f6f8fa;">
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">옵션</th>
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">방법</th>
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">난이도</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;"><b>A. DB는 분리</b> ⭐</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">MySQL은 docker-compose나 별도 VM에 두고, K8s엔 backend/frontend만</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">쉬움</td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;"><b>B. 매니지드 DB</b></td>
+        <td style="padding:10px;border:1px solid #d0d7de;">AWS RDS, GCP Cloud SQL → 주소만 K8s에서 호출</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">중간</td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;"><b>C. K8s에 올림</b></td>
+        <td style="padding:10px;border:1px solid #d0d7de;">StatefulSet + PVC + 백업 직접</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">어려움</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">왜 분리가 정석인가</h3>
+  <ul>
+    <li>DB는 데이터가 <b>영구 보존</b>돼야 함 → K8s의 "죽으면 살리면 됨" 철학과 안 맞음</li>
+    <li>백업, 복구, 버전 업그레이드를 <b>직접</b> 해야 함</li>
+    <li>StatefulSet은 일반 Deployment보다 훨씬 까다로움</li>
+    <li>큰 회사들도 RDS 같은 매니지드 서비스에 맡기지 직접 운영 안 함</li>
+  </ul>
+
+  <div style="background:#ddf4ff;border-left:4px solid #0969da;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>💡 이 글에서 진행할 방향:</b> <b>Option A</b>를 따릅니다. MySQL은 docker-compose에 그대로 두고, backend가 호스트의 MySQL을 바라보게 설정. K8s에 익숙해진 후 나중에 분리 고민.
+  </div>
+
+  <!-- ============ Phase 4 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">☕ Phase 4 — Backend (Spring Boot)</h2>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">① ConfigMap — 설정값</h3>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># k8s/10-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  DB_HOST: "host.docker.internal"         # 호스트의 MySQL (Option A)
+  DB_USER: "appuser"
+  CORS_ORIGIN: "http://localhost"</code></pre>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#cf222e;">② Secret — 비밀번호 🚨 매우 중요</h3>
+
+  <div style="background:#ffebe9;border-left:4px solid #cf222e;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>⚠️ Secret YAML을 절대 git/깃허브에 그대로 올리지 마세요.</b><br>
+    <code>base64</code>는 인코딩일 뿐 <b>암호화가 아님</b>. 누구나 <code>echo "..." | base64 -d</code> 한 줄로 디코딩 가능.
+  </div>
+
+  <h4 style="font-size:15px;margin-top:16px;">안전한 보관 방법 4가지</h4>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+    <thead>
+      <tr style="background:#f6f8fa;">
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">방법</th>
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">설명</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;"><b>1. .gitignore + example</b> ⭐</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">실제 secret은 git 제외, <code>secret.yaml.example</code> 템플릿만 커밋</td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;"><b>2. kubectl 명령으로 직접</b> ⭐</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">yaml 파일 자체를 안 만듦. 명령 한 줄로 클러스터에 주입</td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;"><b>3. Sealed Secrets</b></td>
+        <td style="padding:10px;border:1px solid #d0d7de;">암호화된 형태로 git에 올려도 안전. 클러스터만 복호화</td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;"><b>4. External Secrets + Vault</b></td>
+        <td style="padding:10px;border:1px solid #d0d7de;">비밀은 외부 보관, K8s는 참조만. 실무 표준</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h4 style="font-size:15px;margin-top:16px;">방법 1: .gitignore + example 패턴</h4>
+  <p><code>.gitignore</code>에 추가:</p>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># 실제 secret은 절대 커밋 안 함, 템플릿은 허용
+k8s/*-secret.yaml
+!k8s/*-secret.yaml.example</code></pre>
+
+  <p><code>k8s/11-secret.yaml.example</code> (이것만 git에 커밋):</p>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+type: Opaque
+stringData:
+  DB_PASSWORD: "&lt;여기에-실제값-넣기&gt;"
+  JWT_SECRET: "&lt;openssl rand -base64 48 결과&gt;"</code></pre>
+
+  <h4 style="font-size:15px;margin-top:16px;">방법 2: kubectl 명령으로 직접 (더 깔끔)</h4>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>kubectl create secret generic app-secret \
+  --from-literal=DB_PASSWORD='실제비밀번호' \
+  --from-literal=JWT_SECRET="$(openssl rand -base64 48)"</code></pre>
+  <p>장점: <b>git에 올릴 파일이 아예 없음.</b></p>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">③ Backend Deployment</h3>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># k8s/30-backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2                              # ← 시작은 2개로
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+    spec:
+      containers:
+        - name: backend
+          image: meeting-notes-backend:1.0
+          ports:
+            - containerPort: 8080
+          envFrom:                          # ConfigMap/Secret 모든 키를 환경변수로
+            - configMapRef: { name: app-config }
+            - secretRef:    { name: app-secret }
+          # readinessProbe: "트래픽 받을 준비 됐어?" - 안 되면 Service가 트래픽 안 보냄
+          readinessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 20
+          # livenessProbe: "살아있어?" - 죽었으면 컨테이너 재시작
+          livenessProbe:
+            httpGet: { path: /actuator/health, port: 8080 }
+            initialDelaySeconds: 60</code></pre>
+
+  <p style="color:#57606a;font-size:13px;">📝 <b>Actuator</b> = Spring Boot의 모니터링 모듈. <code>/actuator/health</code>로 헬스체크 가능. <code>spring-boot-starter-actuator</code> 의존성 추가하면 켜짐.</p>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">④ Backend Service</h3>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># k8s/31-backend-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP                          # 내부 전용 (Ingress에서 호출)</code></pre>
+
+  <!-- ============ Phase 5 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">⚛️ Phase 5 — Frontend (React)</h2>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># k8s/40-frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: meeting-notes-frontend:1.0
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+      targetPort: 80
+  type: ClusterIP</code></pre>
+
+  <!-- ============ Phase 6 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🚪 Phase 6 — Ingress (외부에서 한 도메인으로)</h2>
+
+  <div style="background:#ddf4ff;border-left:4px solid #0969da;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>💡 Docker Desktop K8s에서 Ingress 쓰려면</b> <b>ingress-nginx controller</b>(<span style="color:#57606a;font-size:13px;">Ingress 규칙을 실제로 실행하는 nginx</span>)를 먼저 설치해야 해요:
+    <pre style="background:#fff;border:1px solid #d0d7de;border-radius:6px;padding:10px;margin-top:8px;font-size:12px;"><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml</code></pre>
+  </div>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># k8s/50-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: meeting-notes-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: meeting-notes.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service: { name: backend,  port: { number: 8080 } }
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: frontend, port: { number: 80 } }</code></pre>
+
+  <div style="background:#fff8c5;border-left:4px solid #d4a72c;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>📝 로컬에서 도메인 쓰려면</b> Windows의 <code>C:\Windows\System32\drivers\etc\hosts</code>에 한 줄 추가:<br>
+    <code>127.0.0.1  meeting-notes.local</code>
+  </div>
+
+  <!-- ============ 배포 흐름 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🚦 실제 배포 — 명령어 순서</h2>
+
+  <ol style="line-height:2;">
+    <li><b>이미지 빌드</b><br>
+      <code>docker build -t meeting-notes-backend:1.0 ./backend</code><br>
+      <code>docker build -t meeting-notes-frontend:1.0 ./frontend</code>
+    </li>
+    <li><b>Secret 만들기</b> (방법 2 사용 시)<br>
+      <code>kubectl create secret generic app-secret --from-literal=...</code>
+    </li>
+    <li><b>설계도 한꺼번에 적용</b><br>
+      <code>kubectl apply -f k8s/</code>
+    </li>
+    <li><b>상태 확인</b><br>
+      <code>kubectl get pods</code> — 모두 Running 인지<br>
+      <code>kubectl get svc</code> — 서비스 떴는지<br>
+      <code>kubectl get ingress</code> — Ingress IP 확인
+    </li>
+    <li><b>접속 테스트</b> → 브라우저에서 <code>http://meeting-notes.local</code> 🎉</li>
+  </ol>
+
+  <!-- ============ 디버깅 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🔧 문제 생겼을 때 — 디버깅 명령어</h2>
+
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+    <thead>
+      <tr style="background:#f6f8fa;">
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">증상</th>
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">명령어</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">Pod가 <b>Pending</b>에서 안 넘어감<br><span style="color:#57606a;font-size:13px;">(노드 자원 부족 / PVC 못 받음 등)</span></td>
+        <td style="padding:10px;border:1px solid #d0d7de;"><code>kubectl describe pod &lt;name&gt;</code><br>맨 아래 Events 보면 원인 나옴</td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">Pod가 <b>CrashLoopBackOff</b><br><span style="color:#57606a;font-size:13px;">(시작 → 죽음 → 재시작 → 또 죽음 반복)</span></td>
+        <td style="padding:10px;border:1px solid #d0d7de;"><code>kubectl logs &lt;pod-name&gt;</code><br>앱 로그 확인</td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">이전 Pod 로그 보고 싶음</td>
+        <td style="padding:10px;border:1px solid #d0d7de;"><code>kubectl logs &lt;pod-name&gt; --previous</code></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">Pod 안으로 직접 들어가기</td>
+        <td style="padding:10px;border:1px solid #d0d7de;"><code>kubectl exec -it &lt;pod-name&gt; -- sh</code></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">Backend가 MySQL에 못 붙음</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">Pod 안에서 <code>nc -zv mysql 3306</code></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">다 지우고 다시</td>
+        <td style="padding:10px;border:1px solid #d0d7de;"><code>kubectl delete -f k8s/</code> 후 <code>kubectl apply -f k8s/</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============ Phase 7 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">☁️ Phase 7 — 진짜 클라우드에 배포</h2>
+
+  <p>로컬에서 잘 돌면 다음 단계:</p>
+  <ol style="line-height:2;">
+    <li><b>이미지를 인터넷 저장소에</b> 올리기
+      <ul>
+        <li><b>Docker Hub</b> — 가장 흔한 무료 저장소, public 이미지 무료</li>
+        <li><b>GHCR</b> — GitHub Container Registry, private도 무료 한도 큼</li>
+        <li><b>AWS ECR</b> — AWS 인프라용</li>
+      </ul>
+    </li>
+    <li><b>실제 K8s 클러스터</b> 받기
+      <ul>
+        <li><b>EKS / GKE / AKS</b> — AWS/GCP/Azure의 매니지드 K8s (월 수만 원~)</li>
+        <li><b>DigitalOcean Kubernetes</b> — 월 $12부터, 학습용 추천</li>
+        <li><b>k3s</b> — 가벼운 K8s, 단일 VPS에 셀프 호스팅</li>
+      </ul>
+    </li>
+    <li><code>kubectl config</code>로 클러스터 가리킨 후 <code>kubectl apply -f k8s/</code></li>
+    <li><b>도메인 + TLS 인증서</b> — <b>cert-manager</b>(<span style="color:#57606a;font-size:13px;">TLS 인증서 자동 발급/갱신 도구</span>)로 <b>Let's Encrypt</b>(<span style="color:#57606a;font-size:13px;">무료 HTTPS 인증서 발급 기관</span>) 자동 발급</li>
+  </ol>
+
+  <div style="background:#ffebe9;border-left:4px solid #cf222e;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>💸 비용 주의:</b> 매니지드 K8s는 비쌉니다. 학습용이면 EKS보다 <b>DigitalOcean Kubernetes ($12/월~)</b> 또는 <b>k3s를 단일 VPS에</b> 띄우는 게 저렴해요.
+  </div>
+
+  <!-- ============ 요약 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🎯 한 줄 요약</h2>
+
+  <div style="background:#ddf4ff;border-left:4px solid #0969da;padding:14px 18px;margin:16px 0;border-radius:4px;">
+    <p style="margin:0;"><b>Dockerfile 2개 + YAML 7개</b>를 만들고 <code>kubectl apply -f k8s/</code> 한 번이면 클러스터에 떠요.</p>
+    <p style="margin-top:10px;margin-bottom:0;">진짜 어려운 건 K8s 자체보다 <b>① 각 컴포넌트가 환경변수로 잘 분리돼 있나</b>, <b>② Secret을 안전하게 다루는가</b>입니다.</p>
+  </div>
+
+  <hr style="border:none;border-top:1px solid #d0d7de;margin:32px 0;">
+  <p style="color:#57606a;font-size:13px;">
+    💬 이전 포스트에서 <b>쿠버네티스의 개념 7가지</b>를 다뤘어요. 안 보셨다면 그 글부터 보시는 걸 추천합니다.
+  </p>
+
+</article>
+</body>
+</html>

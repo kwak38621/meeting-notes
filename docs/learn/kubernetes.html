@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>쿠버네티스 쉽게 풀어보기</title>
+</head>
+<body style="margin:0;background:#fff;">
+<!--
+티스토리 포스트용 HTML.
+사용법: 티스토리 글쓰기 → 우측 상단 "기본모드" 드롭다운 → "HTML" → 아래 <article> 안 복붙.
+인라인 스타일 사용 — 티스토리가 외부 CSS를 자주 막기 때문.
+-->
+<article style="max-width:760px;margin:0 auto;padding:40px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;line-height:1.85;color:#24292f;font-size:16px;">
+
+  <!-- ============ 인트로 ============ -->
+  <h1 style="font-size:30px;font-weight:700;border-bottom:2px solid #d0d7de;padding-bottom:12px;margin-top:0;">
+    ☸️ 쿠버네티스(Kubernetes) 쉽게 풀어보기 — 도대체 이게 뭐고 왜 쓰는가
+  </h1>
+  <p style="color:#57606a;font-size:14px;margin-top:-6px;">
+    전문 용어는 일단 쉬운 말로 풀고, 괄호에 진짜 이름을 같이 적어둘게요. 끝까지 보면 K8s가 뭔지 감이 잡힐 거예요.
+  </p>
+
+  <!-- ============ 한 줄 정의 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">📌 한 줄로 말하면</h2>
+
+  <div style="background:#ddf4ff;border-left:4px solid #0969da;padding:14px 18px;margin:16px 0;border-radius:4px;">
+    <b>쉽게:</b> 쿠버네티스는 <b>"앱이 들어있는 상자(컨테이너) 수십·수백 개를 여러 서버에 자동으로 깔아주고, 죽으면 알아서 살려주고, 트래픽 많아지면 알아서 늘려주는 똑똑한 관리 시스템"</b>이에요.
+    <div style="color:#57606a;font-size:13px;margin-top:6px;">(진짜 이름: Kubernetes, 줄여서 K8s — k와 s 사이에 글자가 8개라서)</div>
+  </div>
+
+  <p>비교하면:</p>
+  <ul>
+    <li><b>Docker</b> = 앱을 <b>상자에 포장하는 기계</b> (컨테이너 만들기)</li>
+    <li><b>쿠버네티스</b> = 그 상자 <b>수백 개를 굴리는 물류센터 관리자</b></li>
+  </ul>
+
+  <!-- ============ 왜 필요한가 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🤔 왜 만들었나 — Docker만으론 뭐가 부족한가</h2>
+
+  <p>Docker로 앱 하나 띄우는 건 쉽죠.</p>
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>docker run -d -p 8080:8080 my-app:1.0</code></pre>
+
+  <p>근데 진짜 서비스를 운영하면 이런 일이 생겨요:</p>
+  <ul>
+    <li>"서버 한 대로 부족해서 <b>3대에 똑같이 깔아야 함</b>" → 일일이 ssh 들어가서?</li>
+    <li>"내가 잘 때 컨테이너가 죽었어" → 누가 살려?</li>
+    <li>"새 버전 배포할 건데 사용자한테 안 끊기게 하고 싶어" → 어떻게?</li>
+    <li>"방송 떠서 트래픽이 10배 됐어" → 자동으로 컨테이너 늘려주려면?</li>
+    <li>"컨테이너끼리 서로 통신해야 하는데 IP가 계속 바뀜" → 어떻게 찾아?</li>
+    <li>"DB 비밀번호를 컨테이너에 안전하게 넣고 싶어" → 어디에?</li>
+  </ul>
+
+  <p>이걸 다 자동으로 해주는 게 쿠버네티스예요.</p>
+
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+    <thead>
+      <tr style="background:#f6f8fa;">
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">이런 문제가 생기면</th>
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">쿠버네티스가 이렇게 해결</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">컨테이너가 갑자기 죽음</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">알아서 다시 살림 <span style="color:#57606a;font-size:13px;">(self-healing)</span></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">여러 서버에 골고루 깔고 싶음</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">빈 서버 찾아서 알아서 배치 <span style="color:#57606a;font-size:13px;">(scheduling)</span></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">새 버전 배포</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">하나씩 갈아끼워서 안 끊김 <span style="color:#57606a;font-size:13px;">(rolling update)</span></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">트래픽 증가</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">알아서 컨테이너 복제본 늘림 <span style="color:#57606a;font-size:13px;">(auto-scaling)</span></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">컨테이너끼리 서로 찾기</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">이름표로 찾을 수 있게 해줌 <span style="color:#57606a;font-size:13px;">(service discovery)</span></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">비밀번호 안전 보관</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">금고에 따로 저장 <span style="color:#57606a;font-size:13px;">(Secret)</span></td>
+      </tr>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;">"이전 버전으로 돌려"</td>
+        <td style="padding:10px;border:1px solid #d0d7de;">명령 한 줄로 롤백 <span style="color:#57606a;font-size:13px;">(rollout undo)</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ============ 전체 그림 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🏗️ 전체 그림 — 서버 묶음 한 덩어리 안에 뭐가 들었나</h2>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>쉽게:</b> 쿠버네티스로 묶인 서버들의 그룹을 <b>"서버 묶음 한 덩어리"</b>라고 보면 돼요. <span style="color:#57606a;font-size:13px;">(Cluster, 클러스터)</span><br>
+    그 안에는 두 종류의 서버가 있어요:
+    <ul style="margin:8px 0;">
+      <li><b>지휘 본부 서버</b> — 명령 받고 결정만 함, 실제 앱은 안 돌아감 <span style="color:#57606a;font-size:13px;">(Control Plane / Master Node)</span></li>
+      <li><b>일꾼 서버</b> — 실제 앱 컨테이너가 돌아가는 곳 <span style="color:#57606a;font-size:13px;">(Worker Node)</span></li>
+    </ul>
+  </div>
+
+  <!-- 클러스터 구상도 (CSS 박스) -->
+  <div style="border:2px solid #d0d7de;border-radius:10px;padding:20px;background:#f6f8fa;margin:20px 0;">
+    <div style="text-align:center;color:#57606a;font-size:13px;margin-bottom:14px;">━━ 서버 묶음 한 덩어리 (Cluster) ━━</div>
+
+    <!-- Control Plane -->
+    <div style="border:2px solid #0969da;border-radius:8px;padding:14px;background:#ddf4ff;">
+      <div style="font-weight:700;color:#0969da;margin-bottom:10px;text-align:center;">🧠 지휘 본부 (Control Plane)</div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse;">
+        <tr>
+          <td style="padding:4px 8px;width:38%;"><b>📮 API Server</b></td>
+          <td style="padding:4px 8px;color:#57606a;">명령 받는 창구 (kubectl이 말 거는 곳)</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;"><b>📋 Scheduler</b></td>
+          <td style="padding:4px 8px;color:#57606a;">배치 담당 — "이 앱은 어느 서버로?"</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;"><b>👀 Controller Manager</b></td>
+          <td style="padding:4px 8px;color:#57606a;">감시자 — "원한 상태 맞아?"</td>
+        </tr>
+        <tr>
+          <td style="padding:4px 8px;"><b>📒 etcd</b></td>
+          <td style="padding:4px 8px;color:#57606a;">상태 저장 노트 — 모든 정보 기록</td>
+        </tr>
+      </table>
+    </div>
+
+    <div style="text-align:center;color:#0969da;font-size:22px;margin:10px 0;">↓ 명령 전달</div>
+
+    <!-- Worker Nodes -->
+    <table style="width:100%;border-collapse:separate;border-spacing:8px 0;">
+      <tr>
+        <td style="width:33.33%;border:2px solid #1a7f37;border-radius:8px;padding:12px;background:#dafbe1;vertical-align:top;">
+          <div style="font-weight:700;color:#1a7f37;text-align:center;">👷 일꾼 서버 1</div>
+          <div style="font-size:11px;color:#57606a;text-align:center;margin-bottom:10px;">(Worker Node)</div>
+          <div style="background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:6px;margin-bottom:4px;text-align:center;font-size:13px;">📦 앱 상자</div>
+          <div style="background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:6px;margin-bottom:10px;text-align:center;font-size:13px;">📦 앱 상자</div>
+          <div style="font-size:12px;color:#57606a;text-align:center;">🛠️ 현장 일꾼 (kubelet)</div>
+        </td>
+        <td style="width:33.33%;border:2px solid #1a7f37;border-radius:8px;padding:12px;background:#dafbe1;vertical-align:top;">
+          <div style="font-weight:700;color:#1a7f37;text-align:center;">👷 일꾼 서버 2</div>
+          <div style="font-size:11px;color:#57606a;text-align:center;margin-bottom:10px;">(Worker Node)</div>
+          <div style="background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:6px;margin-bottom:4px;text-align:center;font-size:13px;">📦 앱 상자</div>
+          <div style="background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:6px;margin-bottom:10px;text-align:center;font-size:13px;">📦 앱 상자</div>
+          <div style="font-size:12px;color:#57606a;text-align:center;">🛠️ 현장 일꾼</div>
+        </td>
+        <td style="width:33.33%;border:2px solid #1a7f37;border-radius:8px;padding:12px;background:#dafbe1;vertical-align:top;">
+          <div style="font-weight:700;color:#1a7f37;text-align:center;">👷 일꾼 서버 3</div>
+          <div style="font-size:11px;color:#57606a;text-align:center;margin-bottom:10px;">(Worker Node)</div>
+          <div style="background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:6px;margin-bottom:4px;text-align:center;font-size:13px;">📦 앱 상자</div>
+          <div style="background:#fff;border:1px solid #d0d7de;border-radius:4px;padding:6px;margin-bottom:10px;text-align:center;font-size:13px;">📦 앱 상자</div>
+          <div style="font-size:12px;color:#57606a;text-align:center;">🛠️ 현장 일꾼</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+  <p>그리고 우리가 노트북에서 본부에 명령 보낼 때 쓰는 도구가:</p>
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>명령 전달 도구</b> <span style="color:#57606a;font-size:13px;">(kubectl, '큐브 컨트롤'이라고 읽음)</span><br>
+    → 터미널에서 <code style="background:#eaeef2;padding:2px 6px;border-radius:3px;font-size:13px;">kubectl get pods</code> 이렇게 치면 됨
+  </div>
+
+  <div style="background:#ddf4ff;border-left:4px solid #0969da;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>💡 핵심 사고방식:</b> 쿠버네티스는 <b>"이렇게 됐으면 좋겠어"</b>라고 말해두면 알아서 그 상태로 맞춰주는 시스템이에요. <span style="color:#57606a;font-size:13px;">(이걸 "선언적(Declarative)"이라고 함)</span>
+    <br><br>
+    예: "내 앱 상자 3개가 항상 떠 있었으면 좋겠어" → 1개가 죽으면 알아서 새로 띄움. "이제 5개로 바꿔" → 알아서 2개 더 띄움.
+  </div>
+
+  <!-- ============ 핵심 부품 7가지 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🧩 핵심 부품 7가지 — 하나씩 차근차근</h2>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">1) 앱 상자 한 칸 <span style="color:#57606a;font-size:13px;">(Pod)</span></h3>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>쉽게:</b> Docker 컨테이너를 한 겹 더 감싼 <b>"상자"</b>예요. 쿠버네티스는 컨테이너를 직접 안 다루고, 항상 이 상자 단위로 다룹니다. 보통 <b>상자 1개 = 컨테이너 1개</b>라고 보면 돼요.
+  </div>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># pod.yaml (이런 식으로 적어요)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-app
+spec:
+  containers:
+    - name: app
+      image: my-app:1.0     # 어떤 이미지 쓸지
+      ports:
+        - containerPort: 8080</code></pre>
+
+  <p><b>왜 한 겹 더 씌웠나?</b> 가끔 한 상자 안에 컨테이너 여러 개를 넣고 같이 굴려야 할 때가 있어요 (예: 메인 앱 + 로그 수집기). 같은 상자 안에 있으면 같은 네트워크/저장소를 공유합니다.</p>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">2) 상자 관리 매니저 <span style="color:#57606a;font-size:13px;">(Deployment)</span></h3>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>쉽게:</b> "이 상자를 항상 <b>3개 유지해줘</b>" 같은 약속을 받아두는 매니저예요. 상자가 죽으면 알아서 새로 만들고, 새 버전으로 바꾸면 하나씩 갈아끼워줍니다.
+  </div>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 3                    # ← 항상 3개 유지해줘
+  selector:
+    matchLabels:
+      app: my-app                # ← 이 이름표 붙은 상자 관리
+  template:                      # ← 어떤 상자를 만들지의 설계도
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: app
+          image: my-app:1.0</code></pre>
+
+  <p>이 파일 하나만 쿠버네티스에 던지면 상자 3개를 알아서 띄우고, 죽으면 살리고, 이미지를 <code style="background:#eaeef2;padding:2px 6px;border-radius:3px;font-size:13px;">1.1</code>로 바꾸면 무중단 배포까지 해줍니다.</p>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">3) 대표 전화번호 <span style="color:#57606a;font-size:13px;">(Service)</span></h3>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>쉽게:</b> 상자들은 IP가 매번 바뀝니다 (죽었다 살아나면 새 IP). 그래서 다른 상자가 "야, my-app 어딨어?" 할 때 IP로 찾으면 안 돼요.<br>
+    <b>"대표 전화번호"</b>를 하나 부여해두고, 그 번호로 전화하면 살아있는 상자 중 하나에 알아서 연결시켜주는 게 Service.
+  </div>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-app           # ← 다른 곳에서 "my-app:8080" 으로 부르면 됨
+spec:
+  selector:
+    app: my-app          # ← 이 이름표 붙은 상자들로 트래픽 분배
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP        # 내부 전용</code></pre>
+
+  <p>Service 종류 3가지 (전화번호의 범위):</p>
+  <ul>
+    <li><b>내선 전화</b> — 클러스터 안에서만 통함 <span style="color:#57606a;font-size:13px;">(ClusterIP, 기본값)</span></li>
+    <li><b>외부 공개 포트</b> — 서버의 특정 포트를 외부에 열어줌 <span style="color:#57606a;font-size:13px;">(NodePort)</span></li>
+    <li><b>클라우드 LB 연결</b> — AWS 로드밸런서 같은 거에 연결 <span style="color:#57606a;font-size:13px;">(LoadBalancer)</span></li>
+  </ul>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">4) 도메인별 안내 데스크 <span style="color:#57606a;font-size:13px;">(Ingress)</span></h3>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>쉽게:</b> "<code style="background:#eaeef2;padding:2px 6px;border-radius:3px;font-size:13px;">api.example.com</code>으로 들어오면 backend로 보내, <code style="background:#eaeef2;padding:2px 6px;border-radius:3px;font-size:13px;">www.example.com</code>이면 frontend로 보내" 같은 <b>안내 데스크</b>예요. 도메인이나 URL 경로 보고 어디로 보낼지 결정.
+  </div>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app-ingress
+spec:
+  rules:
+    - host: api.example.com
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: backend-service     # ← 백엔드 대표번호로 전달
+                port: { number: 8080 }
+    - host: www.example.com
+      http:
+        paths:
+          - path: /
+            backend:
+              service:
+                name: frontend-service    # ← 프론트엔드 대표번호로 전달
+                port: { number: 80 }</code></pre>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">5) 설정값 보관함 <span style="color:#57606a;font-size:13px;">(ConfigMap)</span></h3>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>쉽게:</b> "DB 주소", "CORS 허용 도메인" 같은 <b>환경 설정값</b>을 코드 밖에 따로 보관하는 곳. 환경(dev/운영)마다 다른 값을 넣을 수 있어요.
+  </div>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  DB_HOST: "mysql.default.svc.cluster.local"
+  CORS_ORIGIN: "https://app.example.com"</code></pre>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">6) 비밀 금고 <span style="color:#57606a;font-size:13px;">(Secret)</span></h3>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>쉽게:</b> 비밀번호, JWT 시크릿 같은 <b>민감한 값</b> 전용 보관함. ConfigMap이랑 거의 똑같은데 좀 더 엄격하게 다뤄지고, 값이 base64로 인코딩돼요.
+  </div>
+
+  <div style="background:#ffebe9;border-left:4px solid #cf222e;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>⚠️ 주의:</b> base64는 <b>인코딩일 뿐 암호화가 아님</b>. Secret yaml을 git에 그대로 올리면 누구나 디코딩 가능. 보관 방법은 적용 가이드 포스트에서 자세히 다룰게요.
+  </div>
+
+  <h3 style="font-size:17px;margin-top:24px;color:#1a7f37;">7) 외장하드 <span style="color:#57606a;font-size:13px;">(Volume / PersistentVolume)</span></h3>
+
+  <div style="background:#dafbe1;border-left:4px solid #1a7f37;padding:10px 16px;margin:10px 0;border-radius:4px;">
+    <b>쉽게:</b> 상자(컨테이너)는 죽으면 그 안의 데이터도 사라져요. 그럼 MySQL 같은 DB는 어떻게 데이터를 안 잃지?<br>
+    → 상자 바깥에 <b>외장하드</b>를 따로 두고, 거기다 데이터 저장하는 방식.<br>
+    <span style="color:#57606a;font-size:13px;">신청서(PVC, PersistentVolumeClaim)로 "외장하드 10GB 주세요" 요청 → 실제 디스크(PV, PersistentVolume) 할당</span>
+  </div>
+
+  <!-- ============ 실제 동작 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🛬 실제 동작 — 요청 한 번이 어디로 가나</h2>
+
+  <p>사용자가 <code style="background:#eaeef2;padding:2px 6px;border-radius:3px;font-size:13px;">https://meeting-notes.example.com/api/pages/42</code> 호출하면:</p>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:12px;line-height:1.5;"><code>① 사용자 브라우저 → 인터넷
+       ▼
+② 클라우드 로드밸런서가 받아서 클러스터로 던짐
+       ▼
+③ "안내 데스크"(Ingress)가 URL 보고 결정
+   "/api/* 는 백엔드로 보내야지"
+       ▼
+④ "백엔드 대표번호"(backend Service)에 전화
+       ▼
+⑤ 살아있는 백엔드 상자 3개 중 하나에 자동 분배
+       ▼
+⑥ 백엔드 상자 안의 Spring Boot가 요청 처리
+       ▼
+⑦ DB 필요해서 "mysql 대표번호" 호출
+       ▼
+⑧ mysql 상자에 전달 (데이터는 외장하드에 저장돼 있음)
+       ▼
+⑨ 응답을 역순으로 사용자에게</code></pre>
+
+  <!-- ============ 명령어 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">⌨️ 주문서(명령어) 모음 — kubectl</h2>
+
+  <pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;padding:16px;overflow:auto;font-size:13px;line-height:1.55;"><code># 클러스터 상태 보기
+kubectl get nodes                    # 서버 목록
+kubectl get pods                     # 상자 목록
+kubectl get deployments              # 매니저 목록
+kubectl get services                 # 대표번호 목록
+kubectl get all                      # 다 보기
+
+# 설계도 적용/삭제
+kubectl apply -f deployment.yaml     # 이 설계대로 만들어줘 (생성/업데이트)
+kubectl delete -f deployment.yaml    # 지워
+
+# 로그 / 디버깅
+kubectl logs my-app-abc123           # 이 상자 로그
+kubectl logs -f my-app-abc123        # 실시간 (tail -f)
+kubectl exec -it my-app-abc123 -- bash   # 이 상자 안으로 들어가기
+kubectl describe pod my-app-abc123   # 자세히 알려줘 (왜 안 떠?)
+
+# 개수 조정
+kubectl scale deployment my-app --replicas=5    # 5개로 바꿔줘
+
+# 배포/롤백
+kubectl rollout status deployment/my-app
+kubectl rollout undo deployment/my-app          # 직전 버전으로 돌려</code></pre>
+
+  <!-- ============ 너한테 필요한가 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">⚖️ 너한테 정말 필요한가?</h2>
+
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
+    <thead>
+      <tr style="background:#f6f8fa;">
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">이런 상황이면 써볼 만함</th>
+        <th style="text-align:left;padding:10px;border:1px solid #d0d7de;">이런 상황이면 굳이 안 써도 됨</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:10px;border:1px solid #d0d7de;vertical-align:top;">
+          - 마이크로서비스가 여러 개<br>
+          - 트래픽 변동이 큼<br>
+          - 여러 환경(dev/stg/prod) 운영<br>
+          - 팀에 DevOps 인력 있음<br>
+          - <b>학습/이력서 목적</b>
+        </td>
+        <td style="padding:10px;border:1px solid #d0d7de;vertical-align:top;">
+          - 1인 사이드 프로젝트<br>
+          - 사용자 적음 (~수백 명)<br>
+          - 앱 하나만 굴림<br>
+          - 운영 인력 0명<br>
+          - docker-compose로 충분히 돌아감
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="background:#ffebe9;border-left:4px solid #cf222e;padding:12px 16px;margin:16px 0;border-radius:4px;">
+    <b>⚠️ 솔직한 조언:</b> 쿠버네티스는 강력하지만 <b>배우는 데 시간 진짜 많이 듭니다</b>. 개인 프로젝트엔 실용적으론 과해요. 하지만 <b>학습/포트폴리오 목적이면 정말 좋은 선택</b>입니다. 회사 인프라가 어떻게 돌아가는지 이해하는 데 큰 도움 돼요.
+  </div>
+
+  <!-- ============ 요약 ============ -->
+  <h2 style="font-size:22px;border-bottom:1px solid #d0d7de;padding-bottom:6px;margin-top:36px;">🎯 한 줄 요약</h2>
+
+  <div style="background:#ddf4ff;border-left:4px solid #0969da;padding:14px 18px;margin:16px 0;border-radius:4px;">
+    <p style="margin:0;"><b>쿠버네티스 = "내가 원하는 상태를 말해두면, 그 상태가 되도록 컨테이너들을 알아서 배치·복구·확장해주는 자동화 관리 시스템"</b></p>
+    <p style="margin-top:12px;margin-bottom:0;">
+      부품 7개: <b>상자(Pod)</b> · <b>상자 매니저(Deployment)</b> · <b>대표번호(Service)</b> · <b>안내 데스크(Ingress)</b> · <b>설정 보관함(ConfigMap)</b> · <b>비밀 금고(Secret)</b> · <b>외장하드(Volume)</b>
+    </p>
+  </div>
+
+  <hr style="border:none;border-top:1px solid #d0d7de;margin:32px 0;">
+  <p style="color:#57606a;font-size:13px;">
+    💬 다음 포스트에서는 <b>이 개념들을 실제 Spring Boot + React 프로젝트에 적용하는 방법</b>을 단계별로 다룹니다.
+  </p>
+
+</article>
+</body>
+</html>
